@@ -1,0 +1,648 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/theme_provider.dart';
+import '../../../../shared/widgets/confirm_dialog.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
+
+  Future<void> _showAbout(BuildContext context, WidgetRef ref) async {
+    // package_info_plus is already in pubspec.yaml; this is industry-standard for About/version.
+    final info = await PackageInfo.fromPlatform();
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(
+                  Icons.science_rounded,
+                  size: 26,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'dose',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Stylist workflows for accurate color mixing.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: AppColors.muted,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Divider(
+                height: 1,
+                color: Theme.of(ctx).dividerColor.withValues(alpha: 0.6),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Version ${info.version} (${info.buildNumber})',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0F2744),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                  ),
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Sign Out?',
+      message: 'You will need to sign in again to access your data.',
+      confirmLabel: 'Sign Out',
+      isDestructive: true,
+    );
+    if (confirmed && context.mounted) {
+      await ref.read(authStateProvider.notifier).logout();
+    }
+  }
+
+  void _showThemePicker(BuildContext context, WidgetRef ref) {
+    final current = ref.read(themeModeProvider);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Theme',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F2744),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Choose how Dose looks on this device',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: AppColors.muted,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _ThemeOption(
+              icon: Icons.light_mode_rounded,
+              title: 'Light',
+              selected: current == ThemeMode.light,
+              onTap: () {
+                ref.read(themeModeProvider.notifier).setMode(ThemeMode.light);
+                Navigator.pop(ctx);
+              },
+            ),
+            const SizedBox(height: 8),
+            _ThemeOption(
+              icon: Icons.dark_mode_rounded,
+              title: 'Dark',
+              selected: current == ThemeMode.dark,
+              onTap: () {
+                ref.read(themeModeProvider.notifier).setMode(ThemeMode.dark);
+                Navigator.pop(ctx);
+              },
+            ),
+            const SizedBox(height: 8),
+            _ThemeOption(
+              icon: Icons.settings_suggest_rounded,
+              title: 'System',
+              selected: current == ThemeMode.system,
+              onTap: () {
+                ref.read(themeModeProvider.notifier).setMode(ThemeMode.system);
+                Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _themeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+      case ThemeMode.system:
+        return 'System';
+    }
+  }
+
+  String _formatRole(String? role) {
+    final raw = (role ?? 'stylist').replaceAll('_', ' ');
+    return raw
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    final name = (user?.fullName.trim().isNotEmpty ?? false)
+        ? user!.fullName.trim()
+        : 'Stylist';
+    final email = user?.email ?? '';
+    final initials = user?.initials ??
+        (name.isNotEmpty ? name[0].toUpperCase() : '?');
+    final role = _formatRole(user?.role);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
+      body: Column(
+        children: [
+          // Blue header
+          Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+              ),
+              borderRadius: BorderRadius.vertical(
+                bottom: Radius.circular(28),
+              ),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+                child: Column(
+                  children: [
+                    // Decorative soft circles
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned(
+                          right: -30,
+                          top: -40,
+                          child: Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: -20,
+                          bottom: -10,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.06),
+                            ),
+                          ),
+                        ),
+                        Column(
+                          children: [
+                            Container(
+                              width: 88,
+                              height: 88,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFF1E40AF),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.35),
+                                  width: 3,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        Colors.black.withValues(alpha: 0.15),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              name,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            if (email.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                email,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            // Role chip — Dose-relevant (not KYC / edit profile)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.verified_rounded,
+                                    size: 16,
+                                    color: Colors.white.withValues(alpha: 0.95),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    role,
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Preferences list
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              children: [
+                const Text(
+                  'PREFERENCES',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.muted,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _SettingsRow(
+                        icon: Icons.palette_outlined,
+                        iconBg: const Color(0xFFEFF6FF),
+                        iconColor: AppColors.primary,
+                        title: 'Theme',
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _themeLabel(themeMode),
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 14,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.mutedLight,
+                              size: 22,
+                            ),
+                          ],
+                        ),
+                        onTap: () => _showThemePicker(context, ref),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.info_outline_rounded,
+                        iconBg: const Color(0xFFF1F5F9),
+                        iconColor: AppColors.muted,
+                        title: 'About',
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.mutedLight,
+                          size: 22,
+                        ),
+                        onTap: () => _showAbout(context, ref),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Sign out
+                SizedBox(
+                  width: double.infinity,
+                  child: Material(
+                    color: const Color(0xFFFDF2F2),
+                    borderRadius: BorderRadius.circular(50),
+                    child: InkWell(
+                      onTap: () => _logout(context, ref),
+                      borderRadius: BorderRadius.circular(50),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(50),
+                          border: Border.all(
+                            color: const Color(0xFFF5C6C6),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.logout_rounded,
+                              size: 18,
+                              color: Color(0xFFDC2626),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Sign out',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFDC2626),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String title;
+  final Widget trailing;
+  final VoidCallback onTap;
+  final bool showDivider;
+
+  const _SettingsRow({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.title,
+    required this.trailing,
+    required this.onTap,
+    this.showDivider = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF0F2744),
+                    ),
+                  ),
+                ),
+                trailing,
+              ],
+            ),
+          ),
+        ),
+        if (showDivider)
+          const Divider(
+            height: 1,
+            indent: 14,
+            endIndent: 14,
+            color: Color(0xFFF1F5F9),
+          ),
+      ],
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ThemeOption({
+    required this.icon,
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? AppColors.primary.withValues(alpha: 0.08)
+          : const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: selected ? AppColors.primary : AppColors.muted,
+                size: 22,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: selected
+                        ? AppColors.primary
+                        : const Color(0xFF0F2744),
+                  ),
+                ),
+              ),
+              if (selected)
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
