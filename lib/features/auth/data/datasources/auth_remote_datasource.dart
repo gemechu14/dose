@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/auth_models.dart';
 
@@ -9,6 +10,8 @@ abstract class AuthRemoteDataSource {
   Future<UserModel> getMe();
   Future<void> forgotPassword(String email);
   Future<void> resetPassword(String token, String password);
+  Future<({String authUrl, String state})> getGoogleStartUrl(
+      String redirectUri);
   Future<TokenResponse> googleCallback(String code, String state);
 }
 
@@ -60,6 +63,32 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         data: {'token': token, 'password': password},
       );
     } on DioException catch (e) {
+      throw parseDioError(e);
+    }
+  }
+
+  @override
+  Future<({String authUrl, String state})> getGoogleStartUrl(
+      String redirectUri) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.googleStart,
+        queryParameters: {'redirect_uri': redirectUri},
+        options: Options(headers: {'Authorization': ''}),
+      );
+      final data = response.data as Map<String, dynamic>;
+      final authUrl = data['auth_url'] as String? ?? '';
+      final state = data['state'] as String? ?? '';
+      if (authUrl.isEmpty) {
+        throw const AuthException(
+            message: 'Google sign-in is not configured on the server.');
+      }
+      return (authUrl: authUrl, state: state);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 503) {
+        throw const AuthException(
+            message: 'Google sign-in is not configured on the server.');
+      }
       throw parseDioError(e);
     }
   }

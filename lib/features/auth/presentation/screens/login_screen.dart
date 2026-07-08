@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../data/datasources/auth_remote_datasource.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -22,6 +26,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
   bool _loading = false;
+  bool _googleLoading = false;
   String? _errorMessage;
 
   @override
@@ -61,13 +66,61 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _googleLogin() async {
-    // TODO: Implement Google OAuth flow with flutter_web_auth_2
-    // 1. Open Google consent URL
-    // 2. Capture redirect callback with code + state
-    // 3. Call authNotifier.googleLogin(code, state)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Google login coming soon')),
-    );
+    setState(() {
+      _googleLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Step A — fetch Google auth URL from backend
+      final ds = ref.read(authRemoteDataSourceProvider);
+      final start = await ds.getGoogleStartUrl(ApiConstants.googleRedirectUri);
+
+      // Step B — open in-app browser, wait for deep-link callback
+      final resultUrl = await FlutterWebAuth2.authenticate(
+        url: start.authUrl,
+        callbackUrlScheme: 'com.chroma.chroma_inventory_pro',
+      );
+
+      final uri = Uri.parse(resultUrl);
+
+      // Check for user-cancelled or error
+      final error = uri.queryParameters['error'];
+      if (error != null) {
+        if (error == 'access_denied') {
+          // User cancelled — silent exit
+          return;
+        }
+        final desc = uri.queryParameters['error_description'] ?? error;
+        throw Exception(desc);
+      }
+
+      final code = uri.queryParameters['code'];
+      final state = uri.queryParameters['state'];
+      if (code == null || code.isEmpty) {
+        throw Exception('Missing authorization code from Google.');
+      }
+
+      // Step C — exchange code for Dose tokens
+      final err = await ref
+          .read(authStateProvider.notifier)
+          .googleLogin(code, state ?? start.state);
+
+      if (mounted && err != null) {
+        setState(() => _errorMessage = err);
+      }
+    } on PlatformException catch (e) {
+      // User cancelled the browser (RESULT_CANCELED) → silent exit
+      if (e.code == 'RESULT_CANCELED' || e.code == 'UserCanceled') return;
+      if (mounted) setState(() => _errorMessage = e.message ?? 'Google sign-in failed.');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _errorMessage =
+            e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
   }
 
   @override
@@ -152,10 +205,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.destructive.withOpacity(0.08),
+                      color: AppColors.destructive.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: AppColors.destructive.withOpacity(0.3)),
+                          color: AppColors.destructive.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -186,29 +239,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 5),
 
                 // Divider
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('or',
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.muted)),
-                    ),
-                    const Expanded(child: Divider()),
-                  ],
-                ),
+                // Row(
+                //   children: [
+                //     const Expanded(child: Divider()),
+                //     Padding(
+                //       padding: const EdgeInsets.symmetric(horizontal: 12),
+                //       child: Text('or',
+                //           style: AppTextStyles.caption
+                //               .copyWith(color: AppColors.muted)),
+                //     ),
+                //     const Expanded(child: Divider()),
+                //   ],
+                // ),
 
-                const SizedBox(height: 5),
+                // const SizedBox(height: 5),
 
-                // Google login
-                AppButton(
-                  label: AppStrings.continueWithGoogle,
-                  onPressed: _googleLogin,
-                  backgroundColor: AppColors.success,
-                  icon: const _GoogleIcon(),
-                  height: 48,
-                ),
+                // // Google login
+                // AppButton(
+                //   label: AppStrings.continueWithGoogle,
+                //   onPressed: (_loading || _googleLoading) ? null : _googleLogin,
+                //   isLoading: _googleLoading,
+                //   backgroundColor: AppColors.success,
+                //   icon: const _GoogleIcon(),
+                //   height: 48,
+                // ),
 
                 const SizedBox(height: 32),
               ],

@@ -136,7 +136,7 @@ class _CustomersListScreenState
             ),
             Expanded(
               child: customersAsync.when(
-                loading: () => const SkeletonList(),
+                loading: () => const SkeletonList(useCustomerTile: true),
                 error: (err, _) => ErrorState(
                   message:
                       err.toString().replaceFirst('Exception: ', ''),

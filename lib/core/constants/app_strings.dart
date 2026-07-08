@@ -3,7 +3,7 @@ abstract class AppStrings {
 
   // Auth
   static const String login = 'Sign In';
-  static const String loginSubtitle = 'Welcome back, stylist';
+  static const String loginSubtitle = 'Welcome back';
   static const String email = 'Email';
   static const String password = 'Password';
   static const String forgotPassword = 'Forgot Password?';

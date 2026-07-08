@@ -10,10 +10,15 @@ abstract class ApiConstants {
   static const String login = '/users/login';
   static const String refresh = '/users/refresh';
   static const String me = '/users/me';
+  static const String googleStart = '/auth/google/start';
   static const String googleCallback = '/auth/google/callback';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
   static const String setPassword = '/auth/set-password';
+
+  // Google OAuth redirect URI (must match Google Cloud Console + backend)
+  static const String googleRedirectUri =
+      'com.chroma.chroma_inventory_pro://oauth/google/callback';
 
   // Customers
   static const String customers = '/customers/';

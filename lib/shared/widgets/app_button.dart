@@ -46,38 +46,45 @@ class AppButton extends StatelessWidget {
 
   Widget _buildFilled(bool disabled) {
     final useSolid = backgroundColor != null;
+    // While loading keep the primary gradient at reduced opacity (not grey)
+    final isLoadingState = isLoading && onPressed == null;
     return SizedBox(
       width: width ?? double.infinity,
       height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: disabled || useSolid ? null : AppColors.primaryGradient,
-          color: disabled
-              ? AppColors.muted.withOpacity(0.3)
-              : (useSolid ? backgroundColor : null),
-          borderRadius: BorderRadius.circular(borderRadius),
-          boxShadow: disabled || !useSolid
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-        ),
-        child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(borderRadius),
-            ),
-            minimumSize: Size(width ?? double.infinity, height),
+      child: Opacity(
+        opacity: isLoadingState ? 0.75 : 1.0,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: (disabled && !isLoadingState) || useSolid
+                ? null
+                : AppColors.primaryGradient,
+            color: (disabled && !isLoadingState)
+                ? AppColors.muted.withValues(alpha: 0.3)
+                : (useSolid ? backgroundColor : null),
+            borderRadius: BorderRadius.circular(borderRadius),
+            boxShadow: disabled || !useSolid
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
-          child: _buildContent(Colors.white),
+          child: ElevatedButton(
+            onPressed: onPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(borderRadius),
+              ),
+              minimumSize: Size(width ?? double.infinity, height),
+            ),
+            child: _buildContent(Colors.white),
+          ),
         ),
       ),
     );
@@ -93,7 +100,7 @@ class AppButton extends StatelessWidget {
           foregroundColor: AppColors.primary,
           side: BorderSide(
             color: disabled
-                ? AppColors.muted.withOpacity(0.3)
+                ? AppColors.muted.withValues(alpha: 0.3)
                 : AppColors.primary,
           ),
           shape: RoundedRectangleBorder(
@@ -132,7 +139,7 @@ class AppButton extends StatelessWidget {
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor:
-              disabled ? AppColors.destructive.withOpacity(0.4) : AppColors.destructive,
+              disabled ? AppColors.destructive.withValues(alpha: 0.4) : AppColors.destructive,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),

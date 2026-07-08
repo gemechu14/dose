@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/theme/theme_provider.dart';
 import '../../../../shared/widgets/confirm_dialog.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -128,97 +127,6 @@ class ProfileScreen extends ConsumerWidget {
     }
   }
 
-  void _showThemePicker(BuildContext context, WidgetRef ref) {
-    final current = ref.read(themeModeProvider);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'Theme',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF0F2744),
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Choose how Dose looks on this device',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                color: AppColors.muted,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _ThemeOption(
-              icon: Icons.light_mode_rounded,
-              title: 'Light',
-              selected: current == ThemeMode.light,
-              onTap: () {
-                ref.read(themeModeProvider.notifier).setMode(ThemeMode.light);
-                Navigator.pop(ctx);
-              },
-            ),
-            const SizedBox(height: 8),
-            _ThemeOption(
-              icon: Icons.dark_mode_rounded,
-              title: 'Dark',
-              selected: current == ThemeMode.dark,
-              onTap: () {
-                ref.read(themeModeProvider.notifier).setMode(ThemeMode.dark);
-                Navigator.pop(ctx);
-              },
-            ),
-            const SizedBox(height: 8),
-            _ThemeOption(
-              icon: Icons.settings_suggest_rounded,
-              title: 'System',
-              selected: current == ThemeMode.system,
-              onTap: () {
-                ref.read(themeModeProvider.notifier).setMode(ThemeMode.system);
-                Navigator.pop(ctx);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _themeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return 'Light';
-      case ThemeMode.dark:
-        return 'Dark';
-      case ThemeMode.system:
-        return 'System';
-    }
-  }
-
   String _formatRole(String? role) {
     final raw = (role ?? 'stylist').replaceAll('_', ' ');
     return raw
@@ -231,7 +139,6 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final themeMode = ref.watch(themeModeProvider);
     final name = (user?.fullName.trim().isNotEmpty ?? false)
         ? user!.fullName.trim()
         : 'Stylist';
@@ -401,7 +308,7 @@ class ProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
                 const Text(
-                  'PREFERENCES',
+                  'SETTINGS',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -425,37 +332,39 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   child: Column(
                     children: [
-                      _SettingsRow(
-                        icon: Icons.palette_outlined,
-                        iconBg: const Color(0xFFEFF6FF),
-                        iconColor: AppColors.primary,
-                        title: 'Theme',
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _themeLabel(themeMode),
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 14,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: AppColors.mutedLight,
-                              size: 22,
-                            ),
-                          ],
-                        ),
-                        onTap: () => _showThemePicker(context, ref),
-                      ),
+                      // Theme row — hidden for now
+                      // _SettingsRow(
+                      //   icon: Icons.palette_outlined,
+                      //   iconBg: const Color(0xFFEFF6FF),
+                      //   iconColor: AppColors.primary,
+                      //   title: 'Theme',
+                      //   trailing: Row(
+                      //     mainAxisSize: MainAxisSize.min,
+                      //     children: [
+                      //       Text(
+                      //         _themeLabel(themeMode),
+                      //         style: const TextStyle(
+                      //           fontFamily: 'Inter',
+                      //           fontSize: 14,
+                      //           color: AppColors.muted,
+                      //         ),
+                      //       ),
+                      //       const SizedBox(width: 4),
+                      //       const Icon(
+                      //         Icons.chevron_right_rounded,
+                      //         color: AppColors.mutedLight,
+                      //         size: 22,
+                      //       ),
+                      //     ],
+                      //   ),
+                      //   onTap: () => _showThemePicker(context, ref),
+                      // ),
                       _SettingsRow(
                         icon: Icons.info_outline_rounded,
                         iconBg: const Color(0xFFF1F5F9),
                         iconColor: AppColors.muted,
                         title: 'About',
+                        showDivider: false,
                         trailing: const Icon(
                           Icons.chevron_right_rounded,
                           color: AppColors.mutedLight,
@@ -587,62 +496,3 @@ class _SettingsRow extends StatelessWidget {
   }
 }
 
-class _ThemeOption extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ThemeOption({
-    required this.icon,
-    required this.title,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? AppColors.primary.withValues(alpha: 0.08)
-          : const Color(0xFFF8FAFC),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: selected ? AppColors.primary : AppColors.muted,
-                size: 22,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: selected
-                        ? AppColors.primary
-                        : const Color(0xFF0F2744),
-                  ),
-                ),
-              ),
-              if (selected)
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.primary,
-                  size: 22,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

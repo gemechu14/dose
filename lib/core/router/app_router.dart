@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/customers/presentation/screens/customers_list_screen.dart';
 import '../../features/customers/presentation/screens/customer_form_screen.dart';
@@ -20,6 +21,7 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
 abstract class AppRoutes {
+  static const splash = '/';
   static const login = '/login';
   static const forgotPassword = '/forgot-password';
   static const home = '/home';
@@ -48,17 +50,36 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: AppRoutes.home,
+    initialLocation: AppRoutes.splash,
     redirect: (context, state) {
+      final loc = state.matchedLocation;
+      final isLoading = authState.isLoading;
       final isLoggedIn = authState.value != null;
-      final isAuthRoute = state.matchedLocation.startsWith('/login') ||
-          state.matchedLocation.startsWith('/forgot');
+      final isSplash = loc == AppRoutes.splash;
+      final isAuthRoute =
+          loc.startsWith('/login') || loc.startsWith('/forgot');
 
+      // While auth is resolving, show splash
+      if (isLoading) {
+        return isSplash ? null : AppRoutes.splash;
+      }
+
+      // Auth resolved — navigate away from splash / auth screens
+      if (isSplash || isAuthRoute) {
+        return isLoggedIn ? AppRoutes.home : AppRoutes.login;
+      }
+
+      // Protected routes: redirect to login if not authenticated
       if (!isLoggedIn && !isAuthRoute) return AppRoutes.login;
-      if (isLoggedIn && isAuthRoute) return AppRoutes.home;
+
       return null;
     },
     routes: [
+      // Splash (initial, no shell)
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (_, __) => const SplashScreen(),
+      ),
       // Auth routes (no shell)
       GoRoute(
         path: AppRoutes.login,
