@@ -1,6 +1,8 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // Hand-maintained partial for FormulaVisitRequest serializers.
 
+// ignore_for_file: unused_element
+
 part of 'formula_model.dart';
 
 FormulaVisitRequest _$FormulaVisitRequestFromJson(Map<String, dynamic> json) =>

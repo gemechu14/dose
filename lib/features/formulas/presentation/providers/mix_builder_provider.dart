@@ -243,11 +243,11 @@ class MixBuilderNotifier extends Notifier<MixBuilderState> {
     state = state.copyWith(bowls: bowls);
   }
 
-  void setBowlRatio(int bowlIndex, String ratio) {
+  void setBowlRatio(int bowlIndex, DeveloperRatio ratio) {
     if (bowlIndex < 0 || bowlIndex >= state.bowls.length) return;
     final bowl = state.bowls[bowlIndex];
     final batches = bowl.batches.map((batch) {
-      if (batch.isLocked || ratio == 'manual') return batch;
+      if (batch.isLocked || ratio == DeveloperRatio.manual) return batch;
       return batch.copyWith(items: batch.itemsWithDeveloperRatio(ratio));
     }).toList();
     final bowls = _updateBowl(
@@ -268,7 +268,9 @@ class MixBuilderNotifier extends Notifier<MixBuilderState> {
     final bowl = state.bowls[bowlIndex];
     if (batchIndex < 0 || batchIndex >= bowl.batches.length) return items;
     final batch = bowl.batches[batchIndex];
-    if (batch.isLocked || bowl.developerRatio == 'manual') return items;
+    if (batch.isLocked || bowl.developerRatio == DeveloperRatio.manual) {
+      return items;
+    }
     return applyDeveloperRatio(items, bowl.developerRatio);
   }
 
@@ -312,7 +314,7 @@ class MixBuilderNotifier extends Notifier<MixBuilderState> {
     if (bowlIndex < 0 || bowlIndex >= state.bowls.length) return;
     final bowl = state.bowls[bowlIndex];
     if (batchIndex < 0 || batchIndex >= bowl.batches.length) return;
-    if (bowl.developerRatio != 'manual') {
+    if (bowl.developerRatio != DeveloperRatio.manual) {
       final item = bowl.batches[batchIndex].items
           .firstWhereOrNull((i) => i.id == itemId);
       if (item?.product.isDeveloper == true) return;
@@ -425,7 +427,7 @@ class MixBuilderNotifier extends Notifier<MixBuilderState> {
       );
     }).toList();
 
-    const ratio = '1:1';
+    const ratio = DeveloperRatio.oneToOne;
     final batch = MixBatch(
       id: batchId,
       items: applyDeveloperRatio(items, ratio),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
@@ -310,21 +311,8 @@ class _FormulaBuilderScreenState
                   color: AppColors.foreground),
             ),
           ),
-          // AI badge
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text('AI',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700)),
-          ),
-          const SizedBox(width: 8),
+          // AI badge — hidden
+          // const SizedBox(width: 8),
           TextButton(
             onPressed: () async {
               final confirm = await showConfirmDialog(
@@ -449,7 +437,7 @@ class _ClientServiceCardState
   Widget build(BuildContext context) {
     final st = ref.watch(mixBuilderProvider);
     final customersAsync = ref.watch(builderCustomersProvider);
-    final locationsAsync = ref.watch(tenantLocationsProvider);
+    final locationsAsync = ref.watch(tenantLocationsProvider); // used silently
 
     return _Card(
       child: Column(
@@ -516,22 +504,13 @@ class _ClientServiceCardState
             _CustomerHistoryPanel(customerId: st.customerId!),
           ],
 
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-
-          // ── Location ───────────────────────────────────────────────────
-          const _Label('Location'),
-          const SizedBox(height: 6),
-          locationsAsync.when(
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text('Location error: $e',
-                style: const TextStyle(color: Colors.red)),
-            data: (locations) {
-              if (locations.isEmpty) {
-                return const Text('No locations found',
-                    style: TextStyle(color: Colors.grey));
-              }
+          // ── Location (hidden — auto-selected) ─────────────────────────
+          // ignore: unused_local_variable
+          // ignore: dead_code
+          // Location is silently auto-selected from the first available.
+          // Rebuild trigger only.
+          Builder(builder: (_) {
+            locationsAsync.whenData((locations) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (st.locationId == null && locations.isNotEmpty) {
                   ref
@@ -539,98 +518,11 @@ class _ClientServiceCardState
                       .setLocation(locations.first);
                 }
               });
-              final selectedId =
-                  st.locationId ?? locations.first.id;
-              return DropdownButtonFormField<String>(
-                // ignore: deprecated_member_use
-                value: selectedId,
-                decoration: _fieldDecoration(),
-                items: locations
-                    .map((l) => DropdownMenuItem(
-                          value: l.id,
-                          child: Text(l.name,
-                              style: const TextStyle(fontSize: 14)),
-                        ))
-                    .toList(),
-                onChanged: (id) {
-                  final loc =
-                      locations.firstWhere((l) => l.id == id);
-                  ref
-                      .read(mixBuilderProvider.notifier)
-                      .setLocation(loc);
-                  widget.onAutosave();
-                },
-              );
-            },
-          ),
+            });
+            return const SizedBox.shrink();
+          }),
 
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-
-          // ── Formula name ───────────────────────────────────────────────
-          const _Label('Formula name (optional)'),
-          const SizedBox(height: 6),
-          TextField(
-            controller: widget.sessionCtrl,
-            decoration: InputDecoration(
-              hintText: 'e.g. Summer balayage…',
-              hintStyle:
-                  TextStyle(color: Colors.grey.shade400, fontSize: 14),
-              filled: true,
-              fillColor: const Color(0xFFF4F6F9),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-            ),
-            onChanged: (v) {
-              ref
-                  .read(mixBuilderProvider.notifier)
-                  .setSessionName(v);
-              widget.onAutosave();
-            },
-          ),
-
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-
-          // ── Service type ───────────────────────────────────────────────
-          const _Label('Service type'),
-          const SizedBox(height: 6),
-          TextField(
-            controller: widget.serviceCtrl,
-            decoration: InputDecoration(
-              hintText: 'e.g. Full color, Balayage…',
-              hintStyle:
-                  TextStyle(color: Colors.grey.shade400, fontSize: 14),
-              filled: true,
-              fillColor: const Color(0xFFF4F6F9),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-            ),
-            onChanged: (v) {
-              ref
-                  .read(mixBuilderProvider.notifier)
-                  .setServiceType(v);
-              widget.onAutosave();
-            },
-          ),
+          // ── Service type is hidden ─────────────────────────────────────
         ],
       ),
     );
@@ -764,19 +656,20 @@ class _CustomerHistoryPanel extends ConsumerWidget {
       error: (_, __) => const SizedBox.shrink(),
       data: (formulas) {
         if (formulas.isEmpty) return const SizedBox.shrink();
+        final capped = formulas.take(6).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _Label('Past formulas'),
             const SizedBox(height: 8),
             SizedBox(
-              height: 80,
+              height: 88,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: formulas.length,
+                itemCount: capped.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 10),
                 itemBuilder: (ctx, i) =>
-                    _HistoryChip(formula: formulas[i]),
+                    _HistoryChip(formula: capped[i]),
               ),
             ),
           ],
@@ -793,87 +686,114 @@ class _HistoryChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
-      onTap: () => _showMenu(context, ref),
+      onTap: () => context.push('/formulas/${formula.id}'),
       child: Container(
-        width: 130,
-        padding: const EdgeInsets.all(10),
+        width: 150,
+        padding: const EdgeInsets.fromLTRB(10, 10, 6, 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F6F9),
-          borderRadius: BorderRadius.circular(10),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(formula.displayTitle,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-            Text(formula.displayService,
-                style: TextStyle(
-                    fontSize: 11, color: Colors.grey.shade500),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
+            Text(
+              formula.displayTitle,
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              formula.displayService,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             const Spacer(),
-            Row(children: [
-              Text('${formula.items.length} items',
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.grey.shade400)),
-              const Spacer(),
-              const Icon(Icons.expand_more,
-                  size: 14, color: AppColors.muted),
-            ]),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _ChipAction(
+                  tooltip: 'Use',
+                  icon: Icons.play_arrow_rounded,
+                  color: AppColors.primary,
+                  onTap: () async {
+                    final catalog =
+                        await ref.read(tenantCatalogProvider.future);
+                    ref.read(mixBuilderProvider.notifier).applyFormula(
+                          formula, ReuseMode.use, catalog);
+                  },
+                ),
+                const SizedBox(width: 4),
+                _ChipAction(
+                  tooltip: 'Copy',
+                  icon: Icons.copy_rounded,
+                  color: Colors.teal,
+                  onTap: () async {
+                    final catalog =
+                        await ref.read(tenantCatalogProvider.future);
+                    ref.read(mixBuilderProvider.notifier).applyFormula(
+                          formula, ReuseMode.copy, catalog);
+                  },
+                ),
+                const SizedBox(width: 4),
+                _ChipAction(
+                  tooltip: 'Remix',
+                  icon: Icons.edit_rounded,
+                  color: Colors.orange,
+                  onTap: () async {
+                    final catalog =
+                        await ref.read(tenantCatalogProvider.future);
+                    ref.read(mixBuilderProvider.notifier).applyFormula(
+                          formula, ReuseMode.remix, catalog);
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  void _showMenu(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.play_arrow_outlined),
-              title: const Text('Use'),
-              subtitle: const Text('Load name, service, notes & items'),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final catalog =
-                    await ref.read(tenantCatalogProvider.future);
-                ref.read(mixBuilderProvider.notifier).applyFormula(
-                      formula, ReuseMode.use, catalog);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.copy_outlined),
-              title: const Text('Copy'),
-              subtitle: const Text('Load items & service, clear name/notes'),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final catalog =
-                    await ref.read(tenantCatalogProvider.future);
-                ref.read(mixBuilderProvider.notifier).applyFormula(
-                      formula, ReuseMode.copy, catalog);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Remix'),
-              subtitle: const Text('Load for edit, track original source'),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final catalog =
-                    await ref.read(tenantCatalogProvider.future);
-                ref.read(mixBuilderProvider.notifier).applyFormula(
-                      formula, ReuseMode.remix, catalog);
-              },
-            ),
-          ],
+class _ChipAction extends StatelessWidget {
+  final String tooltip;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ChipAction({
+    required this.tooltip,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 15, color: color),
         ),
       ),
     );
@@ -905,7 +825,7 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
     final st = ref.watch(mixBuilderProvider);
     if (widget.bowlIndex >= st.bowls.length) return const SizedBox.shrink();
     final bowl = st.bowls[widget.bowlIndex];
-    const ratios = ['1:1', '1:1.5', '1:2', 'manual'];
+    const ratios = DeveloperRatio.values;
 
     return _Card(
       child: Column(
@@ -977,6 +897,7 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
           const SizedBox(height: 8),
           Row(
             children: ratios.map((r) {
+              final label = ratioLabel(r);
               final active = bowl.developerRatio == r;
               return Expanded(
                 child: GestureDetector(
@@ -1000,7 +921,7 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                               : AppColors.border),
                     ),
                     child: Text(
-                      r,
+                      label,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 11,
@@ -1081,146 +1002,392 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
     MixMoreMode mode = MixMoreMode.copyFormula;
     String wasteError = '';
 
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) {
           final wasteG = double.tryParse(wasteCtrl.text) ?? 0;
-          // Waste split preview by ratio
-          final pigment = currentBatch.pigmentGrams;
-          final dev = currentBatch.developerGrams;
           String splitPreview = '';
-          if (wasteG > 0 && totalMixed > 0) {
-            final pigW =
-                pigment > 0 ? (wasteG * pigment / totalMixed) : 0.0;
-            final devW =
-                dev > 0 ? (wasteG * dev / totalMixed) : 0.0;
-            splitPreview =
-                '${pigW.toStringAsFixed(1)}g color · ${devW.toStringAsFixed(1)}ml dev';
+          if (wasteG > 0) {
+            if (bowl.developerRatio == DeveloperRatio.manual) {
+              final pigment = currentBatch.pigmentGrams;
+              final dev = currentBatch.developerGrams;
+              if (totalMixed > 0) {
+                final pigW =
+                    pigment > 0 ? (wasteG * pigment / totalMixed) : 0.0;
+                final devW =
+                    dev > 0 ? (wasteG * dev / totalMixed) : 0.0;
+                splitPreview =
+                    '${pigW.toStringAsFixed(1)}g color · ${devW.toStringAsFixed(1)}g dev';
+              }
+            } else {
+              final split = splitBowlWaste(wasteG, bowl.developerRatio);
+              splitPreview =
+                  '${split.pigmentWaste.toStringAsFixed(1)}g color · '
+                  '${split.developerWaste.toStringAsFixed(1)}g dev';
+            }
           }
 
-          return AlertDialog(
-            title: Text(
-              '${bowl.label[0].toUpperCase()}${bowl.label.substring(1)}'
-              ' — Batch ${bowl.batches.length} complete?',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Mixed in bowl: ${totalMixed.toStringAsFixed(1)}g',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Weigh total leftover. Waste is split by your '
-                  '${bowl.developerRatio} ratio.',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade500),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: wasteCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d*\.?\d*')),
-                  ],
-                  decoration: InputDecoration(
-                    labelText: 'Total bowl waste (g)',
-                    suffixText: 'g',
-                    errorText: wasteError.isEmpty ? null : wasteError,
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => setDlgState(() {}),
-                ),
-                if (splitPreview.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(8),
+          final bowlName =
+              '${bowl.label[0].toUpperCase()}${bowl.label.substring(1)}';
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.92,
+            minChildSize: 0.5,
+            maxChildSize: 1.0,
+            builder: (_, scrollCtrl) => Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  // ── Drag handle
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    child: Text(
-                      '≈ $splitPreview',
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.science_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                bowlName,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                'Batch ${bowl.batches.length} complete?',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(Icons.close_rounded),
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFFF4F6F9),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+
+                  // ── Scrollable body
+                  Expanded(
+                    child: ListView(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                      children: [
+                        // Stats row
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8F9FB),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              _StatPill(
+                                label: 'Mixed',
+                                value:
+                                    '${totalMixed.toStringAsFixed(1)}g',
+                                icon: Icons.colorize_rounded,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              _StatPill(
+                                label: 'Ratio',
+                                value: ratioLabel(bowl.developerRatio),
+                                icon: Icons.tune_rounded,
+                                color: Colors.teal,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Waste input
+                        Text(
+                          'Leftover waste',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Weigh the total leftover in the bowl and enter it below.',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade500),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: wasteCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'^\d*\.?\d*')),
+                          ],
+                          decoration: InputDecoration(
+                            labelText: 'Total bowl waste',
+                            suffixText: 'g',
+                            errorText:
+                                wasteError.isEmpty ? null : wasteError,
+                            filled: true,
+                            fillColor: const Color(0xFFF4F6F9),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: AppColors.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: AppColors.border),
+                            ),
+                          ),
+                          onChanged: (_) => setDlgState(() {}),
+                        ),
+                        if (splitPreview.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.18)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline_rounded,
+                                    size: 16,
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.7)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '≈ $splitPreview',
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+
+                        // Next mix options
+                        Text(
+                          'What next?',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _ModeOption(
+                          selected: mode == MixMoreMode.copyFormula,
+                          title: 'Copy formula',
+                          subtitle:
+                              'Same bowl — new batch with same products',
+                          onTap: () => setDlgState(
+                              () => mode = MixMoreMode.copyFormula),
+                        ),
+                        const SizedBox(height: 8),
+                        _ModeOption(
+                          selected: mode == MixMoreMode.editFormula,
+                          title: 'Edit formula',
+                          subtitle: 'New bowl — edit a fresh mix',
+                          onTap: () => setDlgState(
+                              () => mode = MixMoreMode.editFormula),
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
+
+                  // ── Action buttons
+                  Container(
+                    padding: EdgeInsets.fromLTRB(
+                        20, 12, 20, 12 + MediaQuery.of(ctx).padding.bottom),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, -3)),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              side: const BorderSide(color: AppColors.border),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final waste =
+                                  double.tryParse(wasteCtrl.text) ?? 0;
+                              if (waste < 0) {
+                                setDlgState(() =>
+                                    wasteError = 'Cannot be negative');
+                                return;
+                              }
+                              if (waste > totalMixed) {
+                                setDlgState(() =>
+                                    wasteError = 'Exceeds mixed total');
+                                return;
+                              }
+                              Navigator.pop(ctx);
+                              ref
+                                  .read(mixBuilderProvider.notifier)
+                                  .mixMore(
+                                    bowlIndex,
+                                    mode: mode,
+                                    leftoverG: waste > 0
+                                        ? waste.toString()
+                                        : '',
+                                  );
+                              widget.onAutosave();
+                              final toast = mode == MixMoreMode.copyFormula
+                                  ? 'Batch ${bowl.batches.length} locked. '
+                                    'Batch ${bowl.batches.length + 1} ready — '
+                                    'same formula.'
+                                  : 'Batch ${bowl.batches.length} locked. '
+                                    'New bowl ready — edit your mix.';
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text(toast)));
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            child: const Text('Confirm & continue',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                const Text('Next mix',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13)),
-                const SizedBox(height: 8),
-                _ModeOption(
-                  selected: mode == MixMoreMode.copyFormula,
-                  title: 'Copy formula',
-                  subtitle:
-                      'Same bowl — new batch with same products',
-                  onTap: () => setDlgState(
-                      () => mode = MixMoreMode.copyFormula),
-                ),
-                const SizedBox(height: 6),
-                _ModeOption(
-                  selected: mode == MixMoreMode.editFormula,
-                  title: 'Edit formula',
-                  subtitle: 'New bowl — edit a fresh mix',
-                  onTap: () => setDlgState(
-                      () => mode = MixMoreMode.editFormula),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel')),
-              ElevatedButton(
-                onPressed: () {
-                  final waste = double.tryParse(wasteCtrl.text) ?? 0;
-                  if (waste < 0) {
-                    setDlgState(() => wasteError = 'Cannot be negative');
-                    return;
-                  }
-                  if (waste > totalMixed) {
-                    setDlgState(
-                        () => wasteError = 'Exceeds mixed total');
-                    return;
-                  }
-                  Navigator.pop(ctx);
-                  ref.read(mixBuilderProvider.notifier).mixMore(
-                        bowlIndex,
-                        mode: mode,
-                        leftoverG:
-                            waste > 0 ? waste.toString() : '',
-                      );
-                  widget.onAutosave();
-                  final toast = mode == MixMoreMode.copyFormula
-                      ? 'Batch ${bowl.batches.length} locked. '
-                        'Batch ${bowl.batches.length + 1} ready — '
-                        'same formula.'
-                      : 'Batch ${bowl.batches.length} locked. '
-                        'New bowl ready — edit your mix.';
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(toast)));
-                },
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white),
-                child: const Text('Confirm'),
               ),
-            ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatPill({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 10, color: color.withValues(alpha: 0.7))),
+                Text(value,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: color)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1295,7 +1462,7 @@ class _ModeOption extends StatelessWidget {
 class _BatchSection extends ConsumerWidget {
   final int bowlIndex;
   final int batchIndex;
-  final String ratio;
+  final DeveloperRatio ratio;
   final bool isLast;
   final int batchNumber;
   final int totalBatches;
@@ -1414,7 +1581,7 @@ class _ItemRow extends ConsumerStatefulWidget {
   final int batchIndex;
   final MixItem item;
   final bool locked;
-  final String ratio;
+  final DeveloperRatio ratio;
   final VoidCallback onAutosave;
 
   const _ItemRow({
@@ -1484,7 +1651,7 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
       if (v != null) swatch = Color(v);
     }
     final isDevAutoCalc =
-        product.isDeveloper && widget.ratio != 'manual';
+        product.isDeveloper && widget.ratio != DeveloperRatio.manual;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -1511,7 +1678,9 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
                     overflow: TextOverflow.ellipsis),
                 if (product.isDeveloper)
                   Text(
-                    isDevAutoCalc ? 'Auto-calculated' : 'Developer',
+                    isDevAutoCalc
+                        ? 'Auto-calculated from color amount'
+                        : 'Developer',
                     style: TextStyle(
                       fontSize: 11,
                       color: isDevAutoCalc
@@ -1718,6 +1887,29 @@ class _PreviewCard extends ConsumerWidget {
                     fontWeight: FontWeight.w600,
                     color: AppColors.muted),
               ),
+              if (hasMix) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _showFullScreenPreview(
+                    context,
+                    mixColor: mixColor,
+                    hexString: mix.hexString,
+                    dropletItems: dropletItems,
+                    totalGrams: totalGrams,
+                    totalCost: totalCost,
+                    bowlLabel: state.activeBowl?.label ?? '',
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F6F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.fullscreen_rounded,
+                        size: 18, color: AppColors.muted),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -1858,6 +2050,184 @@ class _PreviewCard extends ConsumerWidget {
       ),
     );
   }
+
+  void _showFullScreenPreview(
+    BuildContext context, {
+    required Color mixColor,
+    required String hexString,
+    required List<DropletItem> dropletItems,
+    required double totalGrams,
+    required double totalCost,
+    required String bowlLabel,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Text(
+                    'Color preview',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const Spacer(),
+                  if (bowlLabel.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(bowlLabel,
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary)),
+                    ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close_rounded),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFF4F6F9),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    // Large color swatch
+                    Container(
+                      width: 120,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        color: mixColor,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(60),
+                          topRight: Radius.circular(60),
+                          bottomLeft: Radius.circular(60),
+                          bottomRight: Radius.circular(8),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: mixColor.withValues(alpha: 0.4),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      hexString,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StatPill(
+                            label: 'Total',
+                            value: '${totalGrams.toStringAsFixed(1)}g',
+                            icon: Icons.science_rounded,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _StatPill(
+                            label: 'Est. cost',
+                            value: '\$${totalCost.toStringAsFixed(2)}',
+                            icon: Icons.attach_money_rounded,
+                            color: Colors.teal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
+                    ...dropletItems.map((item) {
+                      final pct = totalGrams == 0
+                          ? 0.0
+                          : item.amount / totalGrams * 100;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Color(item.argbColor),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                item.label,
+                                style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                            Text(
+                              '${item.amount.toStringAsFixed(1)}g · '
+                              '${pct.toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade500),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Stat extends StatelessWidget {
@@ -1950,42 +2320,78 @@ class _SaveBar extends ConsumerWidget {
         ? 'Finalize $bowlCount bowls'
         : 'Save visit';
 
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          20, 12, 20, 12 + MediaQuery.of(context).padding.bottom),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, -3))
-        ],
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: ElevatedButton(
-          onPressed: saving ? null : onSave,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
-            elevation: 0,
+    final hasClient = st.customerId != null;
+    final hasProduct =
+        st.bowls.any((b) => b.allItems.any((i) => i.amount > 0));
+    final canSave = hasClient && hasProduct;
+
+    String? hint;
+    if (!hasClient) {
+      hint = 'Select a client to save';
+    } else if (!hasProduct) {
+      hint = 'Add at least one product with an amount';
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (hint != null)
+          Container(
+            width: double.infinity,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            color: Colors.amber.shade50,
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 16, color: Colors.amber.shade700),
+                const SizedBox(width: 8),
+                Text(hint,
+                    style: TextStyle(
+                        fontSize: 12, color: Colors.amber.shade800)),
+              ],
+            ),
           ),
-          child: saving
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
-              : Text(label,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w700)),
+        Container(
+          padding: EdgeInsets.fromLTRB(
+              20, 12, 20, 12 + MediaQuery.of(context).padding.bottom),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, -3))
+            ],
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: (saving || !canSave) ? null : onSave,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade200,
+                disabledForegroundColor: Colors.grey.shade400,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: saving
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(label,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -2051,17 +2457,3 @@ class _PickerBox extends StatelessWidget {
   }
 }
 
-InputDecoration _fieldDecoration() => InputDecoration(
-      filled: true,
-      fillColor: const Color(0xFFF4F6F9),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-    );

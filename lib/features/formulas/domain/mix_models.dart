@@ -1,5 +1,9 @@
 import 'dart:convert';
 
+import 'developer_ratio.dart';
+
+export 'developer_ratio.dart';
+
 // ─── Mix-More mode ────────────────────────────────────────────────────────────
 
 /// Copy = same bowl, new batch pre-filled with same products (amounts zeroed).
@@ -102,7 +106,7 @@ class TenantProduct {
     return hex.isNotEmpty;
   }
 
-  /// COLOR + TONER grams drive developer auto-calc (not dev or treatment).
+  /// COLOR + TONER grams form the pigment base (excludes developer & treatment).
   bool get countsTowardDeveloperRatio => !isDeveloper && !isTreatment;
 
   /// Join tenant-catalog row with global product (web builder pattern).
@@ -125,8 +129,28 @@ class TenantProduct {
     // Code only shown for non-custom labels: "Name (code)".
     final code = hasCustomName ? null : global?.code;
 
-    final catRaw = (global?.lineCategory ?? _str(json['line_category']) ?? '')
+    final catRaw = (global?.lineCategory ??
+            _str(json['line_category']) ??
+            _str(json['category']) ??
+            '')
         .toUpperCase();
+    final inferredDev = _looksLikeDeveloper(
+      name: name,
+      code: code,
+      productLineName: global?.productLineName ?? _str(json['product_line_name']),
+      category: catRaw,
+    );
+    final inferredToner = _looksLikeToner(
+      name: name,
+      code: code,
+      productLineName: global?.productLineName ?? _str(json['product_line_name']),
+      category: catRaw,
+    );
+    final inferredTreatment = _looksLikeTreatment(
+      name: name,
+      productLineName: global?.productLineName ?? _str(json['product_line_name']),
+      category: catRaw,
+    );
 
     return TenantProduct(
       id: json['id'].toString(),
@@ -143,34 +167,87 @@ class TenantProduct {
       defaultUnitCost: _asDouble(json['default_unit_cost']) ??
           global?.unitCost ??
           0,
-      isDeveloper: catRaw.contains('DEV') || catRaw.contains('DEVELOPER'),
-      isToner: catRaw.contains('TON'),
-      isTreatment: catRaw.contains('TREAT') || catRaw.contains('GLOSS'),
+      isDeveloper: inferredDev,
+      isToner: !inferredDev && inferredToner,
+      isTreatment: !inferredDev && inferredTreatment,
     );
   }
 
   /// Draft / locally serialized product (name + code already resolved).
   factory TenantProduct.fromJson(Map<String, dynamic> json) {
     final catRaw = (_str(json['category']) ?? '').toUpperCase();
+    final name = _str(json['name']) ?? 'Unknown';
+    final code = _str(json['code']);
+    final line = _str(json['product_line_name']);
     return TenantProduct(
       id: json['id'].toString(),
       globalProductId: _str(json['global_product_id']),
-      name: _str(json['name']) ?? 'Unknown',
-      code: _str(json['code']),
+      name: name,
+      code: code,
       colorHex: _str(json['color_hex']),
-      productLineName: _str(json['product_line_name']),
+      productLineName: line,
       brandName: _str(json['brand_name']),
       category: catRaw,
       defaultUnitCost: _asDouble(json['default_unit_cost']) ?? 0,
       isDeveloper: json['is_developer'] as bool? ??
-          catRaw.contains('DEV') ||
-              catRaw.contains('DEVELOPER'),
+          _looksLikeDeveloper(
+            name: name,
+            code: code,
+            productLineName: line,
+            category: catRaw,
+          ),
       isToner:
-          json['is_toner'] as bool? ?? catRaw.contains('TON'),
+          json['is_toner'] as bool? ??
+              _looksLikeToner(
+                name: name,
+                code: code,
+                productLineName: line,
+                category: catRaw,
+              ),
       isTreatment: json['is_treatment'] as bool? ??
-          catRaw.contains('TREAT') ||
-              catRaw.contains('GLOSS'),
+          _looksLikeTreatment(
+            name: name,
+            productLineName: line,
+            category: catRaw,
+          ),
     );
+  }
+
+  static bool _looksLikeDeveloper({
+    required String name,
+    String? code,
+    String? productLineName,
+    String? category,
+  }) {
+    final hay = '${name.toUpperCase()} ${code?.toUpperCase() ?? ''} '
+        '${productLineName?.toUpperCase() ?? ''} ${category ?? ''}';
+    return hay.contains('DEVELOPER') ||
+        hay.contains(' DEVELOPER ') ||
+        hay.contains('DEV ') ||
+        hay.contains('DEV-') ||
+        hay.contains('OXID') ||
+        hay.contains('PEROXIDE');
+  }
+
+  static bool _looksLikeToner({
+    required String name,
+    String? code,
+    String? productLineName,
+    String? category,
+  }) {
+    final hay = '${name.toUpperCase()} ${code?.toUpperCase() ?? ''} '
+        '${productLineName?.toUpperCase() ?? ''} ${category ?? ''}';
+    return hay.contains('TONER') || hay.contains(' TON ');
+  }
+
+  static bool _looksLikeTreatment({
+    required String name,
+    String? productLineName,
+    String? category,
+  }) {
+    final hay = '${name.toUpperCase()} ${productLineName?.toUpperCase() ?? ''} '
+        '${category ?? ''}';
+    return hay.contains('TREAT') || hay.contains('GLOSS') || hay.contains('MASK');
   }
 
   static Map<String, dynamic>? _asMap(dynamic value) {
@@ -329,7 +406,7 @@ class MixBatch {
       .fold(0.0, (s, i) => s + i.amount);
 
   /// Apply ratio to developer line(s); splits equally if multiple developers.
-  List<MixItem> itemsWithDeveloperRatio(String ratio) =>
+  List<MixItem> itemsWithDeveloperRatio(DeveloperRatio ratio) =>
       applyDeveloperRatio(items, ratio);
 
   double get wasteGrams =>
@@ -351,26 +428,57 @@ class MixBatch {
         leftoverOz: leftoverOz ?? this.leftoverOz,
       );
 
-  /// Split total waste proportionally across products.
-  /// Returns a map of productId → wasteAmount.
-  Map<String, double> computeWasteByProduct() {
+  /// Split total waste across products using bowl ratio rules.
+  Map<String, double> computeWasteByProduct(DeveloperRatio ratio) {
     final totalWaste = wasteGrams;
     if (totalWaste <= 0) return {};
-    final total = totalGrams;
-    if (total <= 0) return {};
-    final result = <String, double>{};
-    for (final item in items) {
-      if (item.amount <= 0) continue;
-      result[item.product.id] = (item.amount / total) * totalWaste;
+
+    if (ratio == DeveloperRatio.manual) {
+      final total = totalGrams;
+      if (total <= 0) return {};
+      final result = <String, double>{};
+      for (final item in items) {
+        if (item.amount <= 0) continue;
+        result[item.product.id] = (item.amount / total) * totalWaste;
+      }
+      return result;
     }
+
+    final pigmentSide = items
+        .where((i) => !i.product.isDeveloper && i.amount > 0)
+        .toList();
+    final devSide =
+        items.where((i) => i.product.isDeveloper && i.amount > 0).toList();
+
+    final pigmentPool = totalWaste * wastePigmentShare(ratio);
+    final devPool = totalWaste * wasteDeveloperShare(ratio);
+
+    final result = <String, double>{};
+
+    final pigmentTotal =
+        pigmentSide.fold(0.0, (s, i) => s + i.amount);
+    if (pigmentTotal > 0) {
+      for (final item in pigmentSide) {
+        result[item.product.id] =
+            (item.amount / pigmentTotal) * pigmentPool;
+      }
+    }
+
+    final devTotal = devSide.fold(0.0, (s, i) => s + i.amount);
+    if (devTotal > 0) {
+      for (final item in devSide) {
+        result[item.product.id] = (item.amount / devTotal) * devPool;
+      }
+    }
+
     return result;
   }
 
   /// "Waste: 5g (07N:2g · DEV20:3g)"
-  String wasteSplitNotes(String ratio) {
+  String wasteSplitNotes(DeveloperRatio ratio) {
     final totalWaste = wasteGrams;
     if (totalWaste <= 0) return '';
-    final waste = computeWasteByProduct();
+    final waste = computeWasteByProduct(ratio);
     if (waste.isEmpty) return '';
     final parts = waste.entries
         .map((e) {
@@ -406,13 +514,13 @@ class MixBatch {
 class MixBowl {
   final String id;
   final String label;
-  final String developerRatio;
+  final DeveloperRatio developerRatio;
   final List<MixBatch> batches;
 
   const MixBowl({
     required this.id,
     required this.label,
-    this.developerRatio = '1:1',
+    this.developerRatio = DeveloperRatio.oneToOne,
     this.batches = const [],
   });
 
@@ -423,7 +531,7 @@ class MixBowl {
 
   MixBowl copyWith({
     String? label,
-    String? developerRatio,
+    DeveloperRatio? developerRatio,
     List<MixBatch>? batches,
   }) =>
       MixBowl(
@@ -436,7 +544,7 @@ class MixBowl {
   Map<String, dynamic> toJson() => {
         'id': id,
         'label': label,
-        'developerRatio': developerRatio,
+        'developerRatio': ratioLabel(developerRatio),
         'batches': batches.map((b) => b.toJson()).toList(),
       };
 
@@ -450,7 +558,7 @@ class MixBowl {
     return MixBowl(
       id: json['id'] as String,
       label: json['label'] as String? ?? 'Bowl',
-      developerRatio: json['developerRatio'] as String? ?? '1:1',
+      developerRatio: ratioFromLabel(json['developerRatio'] as String?),
       batches: batches,
     );
   }
@@ -458,7 +566,7 @@ class MixBowl {
   static MixBowl empty({required String id, required String label}) => MixBowl(
         id: id,
         label: label,
-        developerRatio: '1:1',
+        developerRatio: DeveloperRatio.oneToOne,
         batches: [MixBatch(id: 'batch-$id-0')],
       );
 }
@@ -598,7 +706,7 @@ class MixBuilderState {
           );
         }
         // Distribute waste proportionally across this batch's products.
-        final wasteMap = batch.computeWasteByProduct();
+        final wasteMap = batch.computeWasteByProduct(bowl.developerRatio);
         for (final e in wasteMap.entries) {
           wastes[e.key] = (wastes[e.key] ?? 0) + e.value;
         }
@@ -695,23 +803,19 @@ MixColorResult mixColors(List<MixItem> items) {
   return MixColorResult(hexString: hexOut, argbColor: argb);
 }
 
-/// Developer auto-calc given pigment grams and ratio string.
-double calcDeveloperAmount(double pigmentGrams, String ratio) {
-  switch (ratio) {
-    case '1:1':
-      return pigmentGrams;
-    case '1:1.5':
-      return pigmentGrams * 1.5;
-    case '1:2':
-      return pigmentGrams * 2;
-    default:
-      return 0;
-  }
+/// Developer auto-calc given pigment grams and ratio.
+double calcDeveloperAmount(double pigmentGrams, DeveloperRatio ratio) {
+  final multiplier = ratioMultiplier(ratio);
+  if (multiplier == null) return 0;
+  return pigmentGrams * multiplier;
 }
 
 /// Update developer line amounts from COLOR+TONER pigment and bowl ratio.
-List<MixItem> applyDeveloperRatio(List<MixItem> items, String ratio) {
-  if (ratio == 'manual') return items;
+List<MixItem> applyDeveloperRatio(
+  List<MixItem> items,
+  DeveloperRatio ratio,
+) {
+  if (ratio == DeveloperRatio.manual) return items;
   final devItems = items.where((i) => i.product.isDeveloper).toList();
   if (devItems.isEmpty) return items;
   final pigment = items
