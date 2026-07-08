@@ -116,7 +116,8 @@ class _ProductPickerSheetState extends ConsumerState<ProductPickerSheet> {
                   final q = _query.toLowerCase();
                   final filtered = catalog.where((p) {
                     if (q.isEmpty) return true;
-                    return p.name.toLowerCase().contains(q) ||
+                    return p.label.toLowerCase().contains(q) ||
+                        p.name.toLowerCase().contains(q) ||
                         (p.code?.toLowerCase().contains(q) ?? false) ||
                         (p.brandName?.toLowerCase().contains(q) ?? false);
                   }).toList();
@@ -251,7 +252,7 @@ class _ProductTile extends StatelessWidget {
                         color: Colors.orange.shade200),
                   ),
                   child: Text(
-                    'Low stock',
+                    'Not in stock',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.orange.shade700,

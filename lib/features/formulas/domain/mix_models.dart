@@ -1,9 +1,58 @@
 import 'dart:convert';
 
-// ─── Tenant Product (from catalog) ────────────────────────────────────────────
+// ─── Mix-More mode ────────────────────────────────────────────────────────────
+
+/// Copy = same bowl, new batch pre-filled with same products (amounts zeroed).
+/// Edit = lock current batch in current bowl, add a fresh new bowl.
+enum MixMoreMode { copyFormula, editFormula }
+
+// ─── Global product (GET /products/) ─────────────────────────────────────────
+
+class GlobalProduct {
+  final String id;
+  final String name;
+  final String? code;
+  final String? hexCode;
+  final String? productLineName;
+  final String? brandName;
+  final String? lineCategory;
+  final double? unitCost;
+
+  const GlobalProduct({
+    required this.id,
+    required this.name,
+    this.code,
+    this.hexCode,
+    this.productLineName,
+    this.brandName,
+    this.lineCategory,
+    this.unitCost,
+  });
+
+  factory GlobalProduct.fromJson(Map<String, dynamic> json) {
+    final productLine = TenantProduct._asMap(json['product_line']);
+    final brand = TenantProduct._asMap(productLine?['brand']);
+    return GlobalProduct(
+      id: json['id'].toString(),
+      name: (TenantProduct._str(json['name']) ?? '').trim(),
+      code: TenantProduct._str(json['code']),
+      hexCode: TenantProduct._str(json['hex_code']) ??
+          TenantProduct._str(json['color_hex']),
+      productLineName: TenantProduct._str(json['product_line_name']) ??
+          TenantProduct._str(productLine?['name']),
+      brandName: TenantProduct._str(json['brand_name']) ??
+          TenantProduct._str(brand?['name']),
+      lineCategory: TenantProduct._str(json['line_category']) ??
+          TenantProduct._str(productLine?['category']),
+      unitCost: TenantProduct._asDouble(json['unit_cost']),
+    );
+  }
+}
+
+// ─── Tenant Product ───────────────────────────────────────────────────────────
 
 class TenantProduct {
-  final String id; // tenant_product_id
+  final String id;
   final String? globalProductId;
   final String name;
   final String? code;
@@ -39,47 +88,101 @@ class TenantProduct {
     return base;
   }
 
-  bool get contributesToColor =>
-      !isDeveloper && !isTreatment && colorHex != null && colorHex!.isNotEmpty;
+  /// COLOR + TONER-with-hex contribute to the mixed color swatch.
+  bool get contributesToColor {
+    if (isDeveloper || isTreatment) return false;
+    final hex = colorHex ?? '';
+    return hex.isNotEmpty;
+  }
 
-  factory TenantProduct.fromJson(Map<String, dynamic> json) {
-    final global = json['global_product'] as Map<String, dynamic>?;
-    final catRaw = ((json['category'] ??
-                json['product_category'] ??
-                global?['category'] ??
-                global?['product_category'] ??
-                '') as Object)
-        .toString()
+  /// Goes inside the flask liquid layers (COLOR + TONER with valid hex).
+  bool get goesInFlask {
+    if (isDeveloper || isTreatment) return false;
+    final hex = colorHex ?? '';
+    return hex.isNotEmpty;
+  }
+
+  /// COLOR + TONER grams drive developer auto-calc (not dev or treatment).
+  bool get countsTowardDeveloperRatio => !isDeveloper && !isTreatment;
+
+  /// Join tenant-catalog row with global product (web builder pattern).
+  factory TenantProduct.fromTenantCatalog(
+    Map<String, dynamic> json,
+    GlobalProduct? global,
+  ) {
+    final customName = _str(json['custom_name']);
+    final hasCustomName =
+        customName != null && customName.trim().isNotEmpty;
+    final productId = _str(json['product_id']) ??
+        _str(json['global_product_id']) ??
+        global?.id;
+
+    final name = hasCustomName
+        ? customName.trim()
+        : (global?.name.trim().isNotEmpty == true
+            ? global!.name.trim()
+            : 'Unknown');
+    // Code only shown for non-custom labels: "Name (code)".
+    final code = hasCustomName ? null : global?.code;
+
+    final catRaw = (global?.lineCategory ?? _str(json['line_category']) ?? '')
         .toUpperCase();
 
     return TenantProduct(
       id: json['id'].toString(),
-      globalProductId:
-          (json['global_product_id'] ?? global?['id'])?.toString(),
-      name: (json['custom_name'] ??
-              json['name'] ??
-              global?['name'] ??
-              'Unknown')
-          .toString(),
-      code: (json['code'] ?? global?['code'])?.toString(),
-      colorHex:
-          (json['color_hex'] ?? global?['color_hex'])?.toString(),
-      productLineName: (json['product_line_name'] ??
-              global?['product_line_name'])
-          ?.toString(),
-      brandName:
-          (json['brand_name'] ?? global?['brand_name'])?.toString(),
+      globalProductId: productId,
+      name: name,
+      code: code,
+      colorHex: global?.hexCode ??
+          _str(json['hex_code']) ??
+          _str(json['color_hex']),
+      productLineName:
+          global?.productLineName ?? _str(json['product_line_name']),
+      brandName: global?.brandName ?? _str(json['brand_name']),
       category: catRaw,
-      defaultUnitCost: _asDouble(json['default_unit_cost'] ??
-              json['unit_cost'] ??
-              global?['unit_cost']) ??
+      defaultUnitCost: _asDouble(json['default_unit_cost']) ??
+          global?.unitCost ??
           0,
-      isDeveloper:
-          catRaw.contains('DEV') || catRaw.contains('DEVELOPER'),
+      isDeveloper: catRaw.contains('DEV') || catRaw.contains('DEVELOPER'),
       isToner: catRaw.contains('TON'),
-      isTreatment:
-          catRaw.contains('TREAT') || catRaw.contains('GLOSS'),
+      isTreatment: catRaw.contains('TREAT') || catRaw.contains('GLOSS'),
     );
+  }
+
+  /// Draft / locally serialized product (name + code already resolved).
+  factory TenantProduct.fromJson(Map<String, dynamic> json) {
+    final catRaw = (_str(json['category']) ?? '').toUpperCase();
+    return TenantProduct(
+      id: json['id'].toString(),
+      globalProductId: _str(json['global_product_id']),
+      name: _str(json['name']) ?? 'Unknown',
+      code: _str(json['code']),
+      colorHex: _str(json['color_hex']),
+      productLineName: _str(json['product_line_name']),
+      brandName: _str(json['brand_name']),
+      category: catRaw,
+      defaultUnitCost: _asDouble(json['default_unit_cost']) ?? 0,
+      isDeveloper: json['is_developer'] as bool? ??
+          catRaw.contains('DEV') ||
+              catRaw.contains('DEVELOPER'),
+      isToner:
+          json['is_toner'] as bool? ?? catRaw.contains('TON'),
+      isTreatment: json['is_treatment'] as bool? ??
+          catRaw.contains('TREAT') ||
+              catRaw.contains('GLOSS'),
+    );
+  }
+
+  static Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  static String? _str(dynamic value) {
+    if (value == null) return null;
+    final s = value.toString().trim();
+    return s.isEmpty ? null : s;
   }
 
   Map<String, dynamic> toJson() => {
@@ -121,8 +224,7 @@ class LocationModel {
   factory LocationModel.fromJson(Map<String, dynamic> json) {
     return LocationModel(
       id: json['id'].toString(),
-      name:
-          (json['name'] ?? json['location_name'] ?? 'Location').toString(),
+      name: (json['name'] ?? json['location_name'] ?? 'Location').toString(),
       address: json['address']?.toString(),
     );
   }
@@ -201,7 +303,7 @@ class MixBatch {
   final String id;
   final List<MixItem> items;
   final bool isLocked;
-  final String leftoverG;
+  final String leftoverG; // total bowl waste in grams (user-entered)
   final String leftoverMl;
   final String leftoverOz;
 
@@ -216,6 +318,22 @@ class MixBatch {
 
   double get totalGrams => items.fold(0, (s, i) => s + i.amount);
   double get totalCost => items.fold(0, (s, i) => s + i.estimatedCost);
+
+  /// Sum of COLOR + TONER amounts (excludes developer and treatment).
+  double get pigmentGrams => items
+      .where((i) => i.product.countsTowardDeveloperRatio)
+      .fold(0.0, (s, i) => s + i.amount);
+
+  double get developerGrams => items
+      .where((i) => i.product.isDeveloper)
+      .fold(0.0, (s, i) => s + i.amount);
+
+  /// Apply ratio to developer line(s); splits equally if multiple developers.
+  List<MixItem> itemsWithDeveloperRatio(String ratio) =>
+      applyDeveloperRatio(items, ratio);
+
+  double get wasteGrams =>
+      double.tryParse(leftoverG) ?? 0;
 
   MixBatch copyWith({
     List<MixItem>? items,
@@ -232,6 +350,37 @@ class MixBatch {
         leftoverMl: leftoverMl ?? this.leftoverMl,
         leftoverOz: leftoverOz ?? this.leftoverOz,
       );
+
+  /// Split total waste proportionally across products.
+  /// Returns a map of productId → wasteAmount.
+  Map<String, double> computeWasteByProduct() {
+    final totalWaste = wasteGrams;
+    if (totalWaste <= 0) return {};
+    final total = totalGrams;
+    if (total <= 0) return {};
+    final result = <String, double>{};
+    for (final item in items) {
+      if (item.amount <= 0) continue;
+      result[item.product.id] = (item.amount / total) * totalWaste;
+    }
+    return result;
+  }
+
+  /// "Waste: 5g (07N:2g · DEV20:3g)"
+  String wasteSplitNotes(String ratio) {
+    final totalWaste = wasteGrams;
+    if (totalWaste <= 0) return '';
+    final waste = computeWasteByProduct();
+    if (waste.isEmpty) return '';
+    final parts = waste.entries
+        .map((e) {
+          final item = items.firstWhere((i) => i.product.id == e.key);
+          return '${item.product.code ?? item.product.name}:${e.value.toStringAsFixed(1)}g';
+        })
+        .toList()
+        .join(' · ');
+    return 'Waste: ${totalWaste.toStringAsFixed(1)}g ($parts)';
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -268,6 +417,7 @@ class MixBowl {
   });
 
   List<MixItem> get allItems => batches.expand((b) => b.items).toList();
+  MixBatch get currentBatch => batches.isNotEmpty ? batches.last : MixBatch(id: '$id-0');
   double get totalGrams => batches.fold(0, (s, b) => s + b.totalGrams);
   double get totalCost => batches.fold(0, (s, b) => s + b.totalCost);
 
@@ -382,6 +532,13 @@ class MixBuilderState {
   MixBowl? get activeBowl =>
       activeBowlIndex < bowls.length ? bowls[activeBowlIndex] : null;
 
+  /// Items from the CURRENT BATCH of the ACTIVE BOWL only (for preview).
+  List<MixItem> get previewItems {
+    final bowl = activeBowl;
+    if (bowl == null) return [];
+    return bowl.currentBatch.items;
+  }
+
   String toDraftJson() => jsonEncode({
         'customerId': customerId,
         'customerName': customerName,
@@ -422,34 +579,52 @@ class MixBuilderState {
     final bowlPayloads = <Map<String, dynamic>>[];
     for (var bi = 0; bi < bowls.length; bi++) {
       final bowl = bowls[bi];
-      final aggregated = <String, _AggItem>{};
-      for (final batch in bowl.batches) {
+
+      // Aggregate amounts per tenant_product_id across all batches.
+      final amounts = <String, _AggItem>{};
+      final wastes = <String, double>{};
+      final batchNotes = <String>[];
+
+      for (var batchIdx = 0; batchIdx < bowl.batches.length; batchIdx++) {
+        final batch = bowl.batches[batchIdx];
         for (final item in batch.items) {
           if (item.amount <= 0) continue;
-          aggregated.update(
+          amounts.update(
             item.product.id,
             (a) => _AggItem(
-              product: a.product,
-              amount: a.amount + item.amount,
-            ),
+                product: a.product, amount: a.amount + item.amount),
             ifAbsent: () =>
                 _AggItem(product: item.product, amount: item.amount),
           );
         }
+        // Distribute waste proportionally across this batch's products.
+        final wasteMap = batch.computeWasteByProduct();
+        for (final e in wasteMap.entries) {
+          wastes[e.key] = (wastes[e.key] ?? 0) + e.value;
+        }
+        final note =
+            batch.wasteSplitNotes(bowl.developerRatio);
+        if (note.isNotEmpty) {
+          batchNotes.add('Batch ${batchIdx + 1}: $note');
+        }
       }
-      if (aggregated.isEmpty) continue;
+
+      if (amounts.isEmpty) continue;
+
+      final items = amounts.values.map((a) => {
+            'tenant_product_id': a.product.id,
+            'amount_used': a.amount,
+            'waste_amount': wastes[a.product.id] ?? 0,
+            'cost_at_time': a.product.defaultUnitCost,
+          }).toList();
+
+      final bowlNotes = batchNotes.isEmpty ? null : batchNotes.join(' | ');
+
       bowlPayloads.add({
         'bowl_label': bowl.label,
         'bowl_sort_order': bi,
-        'notes': null,
-        'items': aggregated.values
-            .map((a) => {
-                  'tenant_product_id': a.product.id,
-                  'amount_used': a.amount,
-                  'waste_amount': 0,
-                  'cost_at_time': a.product.defaultUnitCost,
-                })
-            .toList(),
+        if (bowlNotes != null) 'notes': bowlNotes,
+        'items': items,
       });
     }
 
@@ -480,7 +655,7 @@ class _AggItem {
 
 class MixColorResult {
   final String hexString;
-  final int argbColor; // 0xFFRRGGBB usable as Flutter Color value
+  final int argbColor;
 
   const MixColorResult({
     required this.hexString,
@@ -488,10 +663,12 @@ class MixColorResult {
   });
 }
 
+/// Weighted RGB average. Only COLOR + TONER-with-hex contribute.
 MixColorResult mixColors(List<MixItem> items) {
   double r = 0, g = 0, b = 0, total = 0;
   for (final item in items) {
     if (!item.product.contributesToColor) continue;
+    if (item.amount <= 0) continue;
     final hex = (item.product.colorHex ?? '').replaceFirst('#', '');
     if (hex.length < 6) continue;
     final parsed = int.tryParse(hex.substring(0, 6), radix: 16);
@@ -506,16 +683,16 @@ MixColorResult mixColors(List<MixItem> items) {
     total += w;
   }
   if (total == 0) {
-    return const MixColorResult(hexString: '#94A3B8', argbColor: 0xFF94A3B8);
+    return const MixColorResult(hexString: '#CCCCCC', argbColor: 0xFFCCCCCC);
   }
   final ri = (r / total).round().clamp(0, 255);
   final gi = (g / total).round().clamp(0, 255);
   final bi = (b / total).round().clamp(0, 255);
   final argb = 0xFF000000 | (ri << 16) | (gi << 8) | bi;
-  final hex =
+  final hexOut =
       '#${ri.toRadixString(16).padLeft(2, '0')}${gi.toRadixString(16).padLeft(2, '0')}${bi.toRadixString(16).padLeft(2, '0')}'
           .toUpperCase();
-  return MixColorResult(hexString: hex, argbColor: argb);
+  return MixColorResult(hexString: hexOut, argbColor: argb);
 }
 
 /// Developer auto-calc given pigment grams and ratio string.
@@ -531,3 +708,89 @@ double calcDeveloperAmount(double pigmentGrams, String ratio) {
       return 0;
   }
 }
+
+/// Update developer line amounts from COLOR+TONER pigment and bowl ratio.
+List<MixItem> applyDeveloperRatio(List<MixItem> items, String ratio) {
+  if (ratio == 'manual') return items;
+  final devItems = items.where((i) => i.product.isDeveloper).toList();
+  if (devItems.isEmpty) return items;
+  final pigment = items
+      .where((i) => i.product.countsTowardDeveloperRatio)
+      .fold(0.0, (s, i) => s + i.amount);
+  final totalDev = calcDeveloperAmount(pigment, ratio);
+  final perDev = totalDev / devItems.length;
+  return items
+      .map((i) => i.product.isDeveloper ? i.copyWith(amount: perDev) : i)
+      .toList();
+}
+
+/// Build display info for each item in the preview / flask.
+class DropletItem {
+  final MixItem source;
+  final bool goesInFlask;
+  final bool contributesToMix;
+  final int argbColor; // for flask layer / chip
+
+  const DropletItem({
+    required this.source,
+    required this.goesInFlask,
+    required this.contributesToMix,
+    required this.argbColor,
+  });
+
+  double get amount => source.amount;
+  String get label => source.product.label;
+}
+
+// Developer accent palette (cycles by product id index).
+const _devAccents = [
+  0xFF38BDF8, // sky
+  0xFFA78BFA, // purple
+  0xFF2DD4BF, // teal
+  0xFFFBBF24, // amber
+  0xFFF472B6, // pink
+  0xFFA3E635, // lime
+];
+
+List<DropletItem> buildDropletItems(
+    List<MixItem> items, List<TenantProduct> devCatalog) {
+  int devColorIdx = 0;
+  final devColorMap = <String, int>{};
+  final result = <DropletItem>[];
+  for (final item in items) {
+    if (item.amount <= 0) continue;
+    final p = item.product;
+    int argb;
+    bool flask;
+    bool mix;
+    if (p.isDeveloper || p.isTreatment) {
+      // Assign an accent color for this developer
+      argb = devColorMap.putIfAbsent(p.id, () {
+        final c = _devAccents[devColorIdx % _devAccents.length];
+        devColorIdx++;
+        return c;
+      });
+      flask = false;
+      mix = false;
+    } else {
+      final hex = (p.colorHex ?? '').replaceFirst('#', '');
+      if (hex.length >= 6) {
+        final parsed = int.tryParse(hex.substring(0, 6), radix: 16);
+        argb = parsed != null ? (0xFF000000 | parsed) : 0xFF94A3B8;
+      } else {
+        // COLOR without hex → gray in flask, no mix contribution
+        argb = 0xFF94A3B8;
+      }
+      flask = p.goesInFlask;
+      mix = p.contributesToColor;
+    }
+    result.add(DropletItem(
+      source: item,
+      goesInFlask: flask,
+      contributesToMix: mix,
+      argbColor: argb,
+    ));
+  }
+  return result;
+}
+
