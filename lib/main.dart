@@ -20,10 +20,12 @@ void main() async {
     ),
   );
 
-  // Lock to portrait
+  // Allow portrait and landscape
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
 
   runApp(
