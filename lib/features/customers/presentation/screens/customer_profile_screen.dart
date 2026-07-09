@@ -26,7 +26,6 @@ class CustomerProfileScreen extends ConsumerWidget {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
           color: AppColors.foreground,
@@ -35,17 +34,16 @@ class CustomerProfileScreen extends ConsumerWidget {
       ),
       body: customerAsync.when(
         loading: () => const _ProfileSkeleton(),
-        error: (err, _) => Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            elevation: 0,
-          ),
-          body: Center(
-            child: Text(err.toString(),
-                style:
-                    AppTextStyles.bodyMd.copyWith(color: AppColors.muted)),
+        error: (err, _) => SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                err.toString(),
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyMd.copyWith(color: AppColors.muted),
+              ),
+            ),
           ),
         ),
         data: (customer) => _ProfileBody(customer: customer),
@@ -320,17 +318,74 @@ class _ProfileSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          SkeletonBox(width: double.infinity, height: 200, borderRadius: 0),
-          Expanded(child: SkeletonList(count: 4)),
-        ],
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Name + email card
+            AppCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  SkeletonBox(width: double.infinity, height: 18, borderRadius: 6),
+                  SizedBox(height: 12),
+                  SkeletonBox(width: 220, height: 16, borderRadius: 6),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Quick stats row
+            Row(
+              children: const [
+                Expanded(
+                  child: AppCard(
+                    padding: EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SkeletonBox(width: 28, height: 28, borderRadius: 8),
+                        SizedBox(height: 8),
+                        SkeletonBox(width: 40, height: 18, borderRadius: 6),
+                        SizedBox(height: 6),
+                        SkeletonBox(width: 68, height: 12, borderRadius: 6),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: AppCard(
+                    padding: EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SkeletonBox(width: 28, height: 28, borderRadius: 8),
+                        SizedBox(height: 8),
+                        SkeletonBox(width: 120, height: 18, borderRadius: 6),
+                        SizedBox(height: 6),
+                        SkeletonBox(width: 52, height: 12, borderRadius: 6),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // CTA
+            const SkeletonBox(width: double.infinity, height: 52, borderRadius: 12),
+            const SizedBox(height: 24),
+
+            // History section
+            const SkeletonBox(width: 120, height: 18, borderRadius: 6),
+            const SizedBox(height: 12),
+            const SkeletonList(count: 3),
+          ],
+        ),
       ),
     );
   }

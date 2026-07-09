@@ -144,20 +144,33 @@ class _CustomersListScreenState
                       ref.read(customersProvider.notifier).refresh(),
                 ),
                 data: (customers) {
+                  final onRefresh = () =>
+                      ref.read(customersProvider.notifier).refresh();
+
                   if (customers.isEmpty) {
-                    return EmptyState(
-                      icon: Icons.people_outline_rounded,
-                      title: 'No clients yet',
-                      subtitle: 'Add your first client to get started',
+                    return RefreshIndicator(
+                      color: AppColors.primary,
+                      onRefresh: onRefresh,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 88),
+                        children: const [
+                          EmptyState(
+                            icon: Icons.people_outline_rounded,
+                            title: 'No clients yet',
+                            subtitle: 'Add your first client to get started',
+                          ),
+                        ],
+                      ),
                     );
                   }
 
                   return RefreshIndicator(
                     color: AppColors.primary,
-                    onRefresh: () =>
-                        ref.read(customersProvider.notifier).refresh(),
+                    onRefresh: onRefresh,
                     child: ListView.separated(
                       controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
                       itemCount: customers.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
