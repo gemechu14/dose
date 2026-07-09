@@ -465,8 +465,6 @@ class _FormulaBuilderScreenState
         child: Column(
           children: [
             _buildHeader(context, st),
-            // Bowl tabs
-            if (st.bowls.length > 1) _BowlTabs(state: st),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -480,6 +478,10 @@ class _FormulaBuilderScreenState
                           setState(() => _customerSearch = v),
                       onAutosave: _scheduleSave,
                     ),
+                    if (st.bowls.length > 1) ...[
+                      const SizedBox(height: 10),
+                      _BowlTabs(state: st),
+                    ],
                     const SizedBox(height: 16),
                     // Only the ACTIVE bowl card is shown.
                     // All bowls shown as tabs above.
@@ -582,12 +584,11 @@ class _BowlTabs extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      color: Colors.white,
+    return SizedBox(
       height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         itemCount: state.bowls.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
@@ -603,8 +604,11 @@ class _BowlTabs extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: active
                     ? AppColors.primary
-                    : const Color(0xFFF4F6F9),
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(20),
+                border: active
+                    ? null
+                    : Border.all(color: const Color(0xFFE2E8F0)),
               ),
               alignment: Alignment.center,
               child: Text(
@@ -716,6 +720,7 @@ class _ClientServiceCardState
               },
             ),
 
+          // ── Location (hidden — auto-selected) ─────────────────────────
           // History for selected customer
           if (st.customerId != null) ...[
             const SizedBox(height: 12),
@@ -1199,12 +1204,23 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
   }
 
   Future<void> _editLabel(BuildContext context, String current) async {
-    final label = await showPromptDialog(
-      context,
-      title: 'Bowl label',
-      hint: 'roots, toner, highlights…',
-      initialValue: current,
+    final label = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => _LabelInputSheet(
+        title: 'Bowl label',
+        hint: 'roots, toner, highlights…',
+        confirmText: 'Save',
+        initialValue: current,
+      ),
     );
+
+    if (!mounted) return;
     if (label != null && label.isNotEmpty) {
       ref
           .read(mixBuilderProvider.notifier)
@@ -2059,15 +2075,121 @@ class _AddBowlButton extends StatelessWidget {
   }
 
   Future<void> _showCustom(BuildContext context) async {
-    final label = await showPromptDialog(
-      context,
-      title: 'Custom bowl label',
-      hint: 'e.g. mid-lengths',
-      confirmLabel: 'Add',
+    final label = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => const _LabelInputSheet(
+        title: 'Custom bowl label',
+        hint: 'e.g. mid-lengths',
+        confirmText: 'Add',
+        initialValue: '',
+      ),
     );
+
     if (label != null && label.isNotEmpty) {
       onAdd(label);
     }
+  }
+}
+
+class _LabelInputSheet extends StatefulWidget {
+  final String title;
+  final String hint;
+  final String confirmText;
+  final String initialValue;
+
+  const _LabelInputSheet({
+    required this.title,
+    required this.hint,
+    required this.confirmText,
+    required this.initialValue,
+  });
+
+  @override
+  State<_LabelInputSheet> createState() => _LabelInputSheetState();
+}
+
+class _LabelInputSheetState extends State<_LabelInputSheet> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        16 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.title,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onSubmitted: (v) {
+              final value = v.trim();
+              if (value.isNotEmpty) Navigator.of(context).pop(value);
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    final value = _controller.text.trim();
+                    if (value.isEmpty) return;
+                    Navigator.of(context).pop(value);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(widget.confirmText),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

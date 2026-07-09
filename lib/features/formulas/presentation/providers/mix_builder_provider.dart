@@ -413,7 +413,6 @@ class MixBuilderNotifier extends Notifier<MixBuilderState> {
 
   void applyFormula(FormulaModel formula, ReuseMode mode,
       List<TenantProduct> catalog) {
-    final bowls = List<MixBowl>.from(state.bowls);
     final bowlId = _uuid.v4();
     final batchId = _uuid.v4();
 
@@ -448,12 +447,9 @@ class MixBuilderNotifier extends Notifier<MixBuilderState> {
       batches: [batch],
     );
 
-    // If first bowl is empty, replace it; otherwise add.
-    if (bowls.length == 1 && bowls.first.allItems.isEmpty) {
-      bowls[0] = bowl;
-    } else {
-      bowls.add(bowl);
-    }
+    // Reuse should load a single source formula into the builder,
+    // not keep stacking duplicate bowls with repeated taps.
+    final bowls = [bowl];
 
     state = state.copyWith(
       sessionName: mode == ReuseMode.use ? formula.formulaName : null,
@@ -462,7 +458,7 @@ class MixBuilderNotifier extends Notifier<MixBuilderState> {
       remixSourceFormulaId:
           mode == ReuseMode.remix ? formula.id : null,
       bowls: bowls,
-      activeBowlIndex: bowls.length - 1,
+      activeBowlIndex: 0,
     );
   }
 

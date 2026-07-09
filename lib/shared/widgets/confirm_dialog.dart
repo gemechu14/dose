@@ -120,18 +120,62 @@ Future<String?> showPromptDialog(
   String confirmLabel = 'Save',
   String cancelLabel = AppStrings.cancel,
 }) async {
-  final controller = TextEditingController(text: initialValue);
-
-  final result = await showDialog<String>(
+  return showDialog<String>(
     context: context,
     barrierDismissible: true,
-    builder: (dialogContext) => _AppDialogShell(
+    builder: (dialogContext) => _PromptDialogContent(
       title: title,
+      hint: hint,
+      initialValue: initialValue,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+    ),
+  );
+}
+
+class _PromptDialogContent extends StatefulWidget {
+  final String title;
+  final String? hint;
+  final String initialValue;
+  final String confirmLabel;
+  final String cancelLabel;
+
+  const _PromptDialogContent({
+    required this.title,
+    required this.hint,
+    required this.initialValue,
+    required this.confirmLabel,
+    required this.cancelLabel,
+  });
+
+  @override
+  State<_PromptDialogContent> createState() => _PromptDialogContentState();
+}
+
+class _PromptDialogContentState extends State<_PromptDialogContent> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AppDialogShell(
+      title: widget.title,
       content: TextField(
-        controller: controller,
+        controller: _controller,
         autofocus: true,
         decoration: InputDecoration(
-          hintText: hint,
+          hintText: widget.hint,
           filled: true,
           fillColor: AppColors.surfaceVariant,
           contentPadding:
@@ -150,14 +194,15 @@ Future<String?> showPromptDialog(
           ),
         ),
         onSubmitted: (v) {
-          if (v.trim().isNotEmpty) Navigator.pop(dialogContext, v.trim());
+          final value = v.trim();
+          if (value.isNotEmpty) Navigator.pop(context, value);
         },
       ),
       actions: [
         Expanded(
           child: AppButton(
-            label: cancelLabel,
-            onPressed: () => Navigator.pop(dialogContext),
+            label: widget.cancelLabel,
+            onPressed: () => Navigator.pop(context),
             variant: AppButtonVariant.outline,
             height: 48,
           ),
@@ -165,22 +210,19 @@ Future<String?> showPromptDialog(
         const SizedBox(width: 12),
         Expanded(
           child: AppButton(
-            label: confirmLabel,
+            label: widget.confirmLabel,
             onPressed: () {
-              final value = controller.text.trim();
+              final value = _controller.text.trim();
               if (value.isEmpty) return;
-              Navigator.pop(dialogContext, value);
+              Navigator.pop(context, value);
             },
             variant: AppButtonVariant.filled,
             height: 48,
           ),
         ),
       ],
-    ),
-  );
-
-  controller.dispose();
-  return result;
+    );
+  }
 }
 
 class _AppDialogShell extends StatelessWidget {
