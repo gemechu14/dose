@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -44,13 +45,14 @@ class HomeScreen extends ConsumerWidget {
 
 // ─── Header ──────────────────────────────────────────────────────────────────
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   final String firstName;
   const _Header({required this.firstName});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
       child: Row(
@@ -68,6 +70,19 @@ class _Header extends StatelessWidget {
                 letterSpacing: -0.4,
               ),
             ),
+          ),
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              size: 26,
+            ),
+            color: cs.onSurface,
+            tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).setMode(
+                    isDark ? ThemeMode.light : ThemeMode.dark,
+                  );
+            },
           ),
         ],
       ),
