@@ -906,6 +906,37 @@ class _HistoryChip extends ConsumerWidget {
   final FormulaModel formula;
   const _HistoryChip({required this.formula});
 
+  bool _hasStartedMix(MixBuilderState st) {
+    if (st.bowls.length > 1) return true;
+    for (final bowl in st.bowls) {
+      if (bowl.batches.length > 1) return true;
+      if (bowl.batches.any((b) => b.isLocked)) return true;
+      if (bowl.allItems.any((i) => i.amount > 0)) return true;
+    }
+    return false;
+  }
+
+  Future<void> _applyFromHistory(
+    BuildContext context,
+    WidgetRef ref, {
+    required ReuseMode mode,
+  }) async {
+    final current = ref.read(mixBuilderProvider);
+    if (_hasStartedMix(current)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You already started this mix. Tap New mix before using past formulas.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final catalog = await ref.read(tenantCatalogProvider.future);
+    ref.read(mixBuilderProvider.notifier).applyFormula(formula, mode, catalog);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
@@ -951,12 +982,11 @@ class _HistoryChip extends ConsumerWidget {
                   icon: Icons.edit_rounded,
                   color: AppColors.primary,
                   isPrimary: true,
-                  onTap: () async {
-                    final catalog =
-                        await ref.read(tenantCatalogProvider.future);
-                    ref.read(mixBuilderProvider.notifier).applyFormula(
-                          formula, ReuseMode.remix, catalog);
-                  },
+                  onTap: () => _applyFromHistory(
+                    context,
+                    ref,
+                    mode: ReuseMode.remix,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 _ChipAction(
@@ -964,12 +994,11 @@ class _HistoryChip extends ConsumerWidget {
                   icon: Icons.check_rounded,
                   color: AppColors.primary,
                   label: 'Use',
-                  onTap: () async {
-                    final catalog =
-                        await ref.read(tenantCatalogProvider.future);
-                    ref.read(mixBuilderProvider.notifier).applyFormula(
-                          formula, ReuseMode.use, catalog);
-                  },
+                  onTap: () => _applyFromHistory(
+                    context,
+                    ref,
+                    mode: ReuseMode.use,
+                  ),
                 ),
               ],
             ),
@@ -1374,19 +1403,23 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                           ),
                           child: Row(
                             children: [
-                              _StatPill(
-                                label: 'Mixed',
-                                value:
-                                    '${totalMixed.toStringAsFixed(1)}g',
-                                icon: Icons.colorize_rounded,
-                                color: AppColors.primary,
+                              Expanded(
+                                child: _StatPill(
+                                  label: 'Mixed',
+                                  value:
+                                      '${totalMixed.toStringAsFixed(1)}g',
+                                  icon: Icons.colorize_rounded,
+                                  color: AppColors.primary,
+                                ),
                               ),
                               const SizedBox(width: 12),
-                              _StatPill(
-                                label: 'Ratio',
-                                value: ratioLabel(bowl.developerRatio),
-                                icon: Icons.tune_rounded,
-                                color: Colors.teal,
+                              Expanded(
+                                child: _StatPill(
+                                  label: 'Ratio',
+                                  value: ratioLabel(bowl.developerRatio),
+                                  icon: Icons.tune_rounded,
+                                  color: Colors.teal,
+                                ),
                               ),
                             ],
                           ),
@@ -1606,32 +1639,30 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize: 10, color: color.withValues(alpha: 0.7))),
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: color)),
-              ],
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 10, color: color.withValues(alpha: 0.7))),
+              Text(value,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: color)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -2478,26 +2509,11 @@ class _PreviewCard extends ConsumerWidget {
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Large color swatch
-                    Container(
-                      width: 120,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        color: mixColor,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(60),
-                          topRight: Radius.circular(60),
-                          bottomLeft: Radius.circular(60),
-                          bottomRight: Radius.circular(8),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: mixColor.withValues(alpha: 0.4),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
+                    // Large flask/cylinder visualization
+                    FormulaDroplet(
+                      items: dropletItems,
+                      flaskWidth: 120,
+                      flaskHeight: 190,
                     ),
                     const SizedBox(height: 20),
                     Text(
