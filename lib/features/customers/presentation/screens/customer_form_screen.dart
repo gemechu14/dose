@@ -71,7 +71,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     final selected = await showModalBottomSheet<PhoneCountry>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -162,7 +162,6 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(isEditing ? 'Edit Client' : AppStrings.newCustomer),
         leading: IconButton(
@@ -246,16 +245,18 @@ class _PhoneField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Phone (optional)',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF334155),
+            color: cs.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 6),
@@ -269,17 +270,13 @@ class _PhoneField extends StatelessWidget {
             FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
             LengthLimitingTextInputFormatter(country.inputMaxChars),
           ],
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 15,
-            color: Color(0xFF0F172A),
+            color: cs.onSurface,
           ),
           decoration: InputDecoration(
             hintText: country.hint,
-            hintStyle: const TextStyle(
-              fontFamily: 'Inter',
-              color: Color(0xFF94A3B8),
-            ),
             prefixIcon: Padding(
               padding: const EdgeInsets.only(left: 8, right: 6),
               child: Row(
@@ -294,9 +291,15 @@ class _PhoneField extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: isDark
+                            ? AppColors.primary.withValues(alpha: 0.15)
+                            : const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.primary.withValues(alpha: 0.3)
+                              : const Color(0xFFBFDBFE),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -327,7 +330,7 @@ class _PhoneField extends StatelessWidget {
                   Container(
                     width: 1,
                     height: 24,
-                    color: const Color(0xFFE2E8F0),
+                    color: cs.outline,
                   ),
                 ],
               ),
@@ -387,6 +390,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: SizedBox(
@@ -398,12 +402,12 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFCBD5E1),
+                color: cs.outline,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -412,7 +416,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                     fontFamily: 'Inter',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: cs.onSurface,
                   ),
                 ),
               ),
@@ -422,19 +426,9 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: _filter,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Search country or code',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
+                  prefixIcon: Icon(Icons.search_rounded),
                 ),
               ),
             ),
@@ -443,7 +437,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               child: ListView.separated(
                 itemCount: _filtered.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    Divider(height: 1, color: cs.outline.withValues(alpha: 0.4)),
                 itemBuilder: (context, index) {
                   final country = _filtered[index];
                   final selected = country.iso2 == widget.selected.iso2 &&

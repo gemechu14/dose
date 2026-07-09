@@ -34,17 +34,18 @@ class AppButton extends StatelessWidget {
 
     switch (variant) {
       case AppButtonVariant.filled:
-        return _buildFilled(disabled);
+        return _buildFilled(context, disabled);
       case AppButtonVariant.outline:
-        return _buildOutline(disabled);
+        return _buildOutline(context, disabled);
       case AppButtonVariant.ghost:
-        return _buildGhost(disabled);
+        return _buildGhost(context, disabled);
       case AppButtonVariant.destructive:
-        return _buildDestructive(disabled);
+        return _buildDestructive(context, disabled);
     }
   }
 
-  Widget _buildFilled(bool disabled) {
+  Widget _buildFilled(BuildContext context, bool disabled) {
+    final cs = Theme.of(context).colorScheme;
     final useSolid = backgroundColor != null;
     // While loading keep the primary gradient at reduced opacity (not grey)
     final isLoadingState = isLoading && onPressed == null;
@@ -59,7 +60,7 @@ class AppButton extends StatelessWidget {
                 ? null
                 : AppColors.primaryGradient,
             color: (disabled && !isLoadingState)
-                ? AppColors.muted.withValues(alpha: 0.3)
+                ? cs.onSurfaceVariant.withValues(alpha: 0.3)
                 : (useSolid ? backgroundColor : null),
             borderRadius: BorderRadius.circular(borderRadius),
             boxShadow: disabled || !useSolid
@@ -90,48 +91,50 @@ class AppButton extends StatelessWidget {
     );
   }
 
-  Widget _buildOutline(bool disabled) {
+  Widget _buildOutline(BuildContext context, bool disabled) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
       width: width ?? double.infinity,
       height: height,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: cs.primary,
           side: BorderSide(
             color: disabled
-                ? AppColors.muted.withValues(alpha: 0.3)
-                : AppColors.primary,
+                ? cs.onSurfaceVariant.withValues(alpha: 0.3)
+                : cs.primary,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
           ),
           minimumSize: Size(width ?? double.infinity, height),
         ),
-        child: _buildContent(AppColors.primary),
+        child: _buildContent(cs.primary),
       ),
     );
   }
 
-  Widget _buildGhost(bool disabled) {
+  Widget _buildGhost(BuildContext context, bool disabled) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
       width: width ?? double.infinity,
       height: height,
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: cs.primary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
           ),
           minimumSize: Size(width ?? double.infinity, height),
         ),
-        child: _buildContent(AppColors.primary),
+        child: _buildContent(cs.primary),
       ),
     );
   }
 
-  Widget _buildDestructive(bool disabled) {
+  Widget _buildDestructive(BuildContext context, bool disabled) {
     return SizedBox(
       width: width ?? double.infinity,
       height: height,

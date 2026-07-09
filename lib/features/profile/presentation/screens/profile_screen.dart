@@ -10,9 +10,11 @@ class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   Future<void> _showAbout(BuildContext context, WidgetRef ref) async {
-    // package_info_plus is already in pubspec.yaml; this is industry-standard for About/version.
     final info = await PackageInfo.fromPlatform();
     if (!context.mounted) return;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
 
     showDialog(
       context: context,
@@ -22,11 +24,11 @@ class ProfileScreen extends ConsumerWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cs.surface,
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.06),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -49,24 +51,24 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'dose',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+                  color: cs.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Stylist workflows for accurate color mixing.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
-                  color: AppColors.muted,
+                  color: cs.onSurfaceVariant,
                   height: 1.35,
                 ),
               ),
@@ -79,11 +81,11 @@ class ProfileScreen extends ConsumerWidget {
               Text(
                 'Version ${info.version} (${info.buildNumber})',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0F2744),
+                  color: cs.onSurface,
                 ),
               ),
               const SizedBox(height: 18),
@@ -96,7 +98,8 @@ class ProfileScreen extends ConsumerWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                    backgroundColor:
+                        AppColors.primary.withValues(alpha: 0.08),
                   ),
                   child: const Text(
                     'Close',
@@ -159,6 +162,9 @@ class ProfileScreen extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
         Widget option({
           required ThemeMode mode,
           required String title,
@@ -176,11 +182,11 @@ class ProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppColors.primary.withValues(alpha: 0.08)
-                    : Colors.white,
+                    ? AppColors.primary.withValues(alpha: 0.1)
+                    : cs.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                  color: isSelected ? AppColors.primary : cs.outline,
                 ),
               ),
               child: Row(
@@ -201,20 +207,20 @@ class ProfileScreen extends ConsumerWidget {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F2744),
+                            color: cs.onSurface,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           subtitle,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
-                            color: AppColors.muted,
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -224,7 +230,9 @@ class ProfileScreen extends ConsumerWidget {
                     isSelected
                         ? Icons.check_circle_rounded
                         : Icons.radio_button_unchecked_rounded,
-                    color: isSelected ? AppColors.primary : AppColors.mutedLight,
+                    color: isSelected
+                        ? AppColors.primary
+                        : cs.onSurfaceVariant,
                     size: 20,
                   ),
                 ],
@@ -238,11 +246,12 @@ class ProfileScreen extends ConsumerWidget {
             margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: cs.surface,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
+                  color: Colors.black
+                      .withValues(alpha: isDark ? 0.5 : 0.12),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -255,18 +264,18 @@ class ProfileScreen extends ConsumerWidget {
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCBD5E1),
+                    color: cs.outline,
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Choose theme',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F2744),
+                    color: cs.onSurface,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -275,7 +284,9 @@ class ProfileScreen extends ConsumerWidget {
                   title: 'System',
                   subtitle: 'Match device appearance',
                   icon: Icons.phone_android_rounded,
-                  iconBg: const Color(0xFFEFF6FF),
+                  iconBg: isDark
+                      ? AppColors.primary.withValues(alpha: 0.15)
+                      : const Color(0xFFEFF6FF),
                   iconColor: AppColors.primary,
                 ),
                 const SizedBox(height: 8),
@@ -284,7 +295,9 @@ class ProfileScreen extends ConsumerWidget {
                   title: 'Light',
                   subtitle: 'Bright and clean interface',
                   icon: Icons.light_mode_rounded,
-                  iconBg: const Color(0xFFFFF7ED),
+                  iconBg: isDark
+                      ? AppColors.warning.withValues(alpha: 0.15)
+                      : const Color(0xFFFFF7ED),
                   iconColor: const Color(0xFFF59E0B),
                 ),
                 const SizedBox(height: 8),
@@ -293,7 +306,9 @@ class ProfileScreen extends ConsumerWidget {
                   title: 'Dark',
                   subtitle: 'Low-light friendly interface',
                   icon: Icons.dark_mode_rounded,
-                  iconBg: const Color(0xFFEEF2FF),
+                  iconBg: isDark
+                      ? const Color(0xFF4338CA).withValues(alpha: 0.2)
+                      : const Color(0xFFEEF2FF),
                   iconColor: const Color(0xFF6366F1),
                 ),
               ],
@@ -312,19 +327,21 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final name = (user?.fullName.trim().isNotEmpty ?? false)
         ? user!.fullName.trim()
         : 'Stylist';
     final email = user?.email ?? '';
-    final initials = user?.initials ??
-        (name.isNotEmpty ? name[0].toUpperCase() : '?');
+    final initials =
+        user?.initials ?? (name.isNotEmpty ? name[0].toUpperCase() : '?');
     final role = _formatRole(user?.role);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
       body: Column(
         children: [
-          // Blue header
+          // Blue gradient header — works on both light and dark
           Container(
             width: double.infinity,
             decoration: const BoxDecoration(
@@ -343,7 +360,6 @@ class ProfileScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
                 child: Column(
                   children: [
-                    // Decorative soft circles
                     Stack(
                       alignment: Alignment.center,
                       children: [
@@ -370,7 +386,8 @@ class ProfileScreen extends ConsumerWidget {
                             height: 80,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color:
+                                  Colors.white.withValues(alpha: 0.06),
                             ),
                           ),
                         ),
@@ -383,13 +400,14 @@ class ProfileScreen extends ConsumerWidget {
                                 shape: BoxShape.circle,
                                 color: const Color(0xFF1E40AF),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.35),
+                                  color:
+                                      Colors.white.withValues(alpha: 0.35),
                                   width: 3,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color:
-                                        Colors.black.withValues(alpha: 0.15),
+                                    color: Colors.black
+                                        .withValues(alpha: 0.15),
                                     blurRadius: 16,
                                     offset: const Offset(0, 6),
                                   ),
@@ -426,22 +444,24 @@ class ProfileScreen extends ConsumerWidget {
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 12,
-                                  color: Colors.white.withValues(alpha: 0.85),
+                                  color:
+                                      Colors.white.withValues(alpha: 0.85),
                                 ),
                               ),
                             ],
                             const SizedBox(height: 16),
-                            // Role chip — Dose-relevant (not KYC / edit profile)
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.18),
+                                color:
+                                    Colors.white.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.25),
+                                  color: Colors.white
+                                      .withValues(alpha: 0.25),
                                 ),
                               ),
                               child: Row(
@@ -450,7 +470,8 @@ class ProfileScreen extends ConsumerWidget {
                                   Icon(
                                     Icons.verified_rounded,
                                     size: 16,
-                                    color: Colors.white.withValues(alpha: 0.95),
+                                    color: Colors.white
+                                        .withValues(alpha: 0.95),
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -480,24 +501,26 @@ class ProfileScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
-                const Text(
+                Text(
                   'SETTINGS',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.muted,
+                    color: cs.onSurfaceVariant,
                     letterSpacing: 0.8,
                   ),
                 ),
                 const SizedBox(height: 10),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cs.surface,
                     borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: cs.outline),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
+                        color: Colors.black
+                            .withValues(alpha: isDark ? 0.2 : 0.04),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -507,7 +530,9 @@ class ProfileScreen extends ConsumerWidget {
                     children: [
                       _SettingsRow(
                         icon: Icons.palette_outlined,
-                        iconBg: const Color(0xFFEFF6FF),
+                        iconBg: isDark
+                            ? AppColors.primary.withValues(alpha: 0.15)
+                            : const Color(0xFFEFF6FF),
                         iconColor: AppColors.primary,
                         title: 'Theme',
                         trailing: Row(
@@ -515,16 +540,16 @@ class ProfileScreen extends ConsumerWidget {
                           children: [
                             Text(
                               _themeLabel(themeMode),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
-                                color: AppColors.muted,
+                                color: cs.onSurfaceVariant,
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(
+                            Icon(
                               Icons.chevron_right_rounded,
-                              color: AppColors.mutedLight,
+                              color: cs.onSurfaceVariant,
                               size: 22,
                             ),
                           ],
@@ -533,13 +558,15 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       _SettingsRow(
                         icon: Icons.info_outline_rounded,
-                        iconBg: const Color(0xFFF1F5F9),
-                        iconColor: AppColors.muted,
+                        iconBg: isDark
+                            ? cs.surfaceContainerHighest
+                            : const Color(0xFFF1F5F9),
+                        iconColor: cs.onSurfaceVariant,
                         title: 'About',
                         showDivider: false,
-                        trailing: const Icon(
+                        trailing: Icon(
                           Icons.chevron_right_rounded,
-                          color: AppColors.mutedLight,
+                          color: cs.onSurfaceVariant,
                           size: 22,
                         ),
                         onTap: () => _showAbout(context, ref),
@@ -553,17 +580,23 @@ class ProfileScreen extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   child: Material(
-                    color: const Color(0xFFFDF2F2),
+                    color: isDark
+                        ? AppColors.destructive.withValues(alpha: 0.12)
+                        : const Color(0xFFFDF2F2),
                     borderRadius: BorderRadius.circular(50),
                     child: InkWell(
                       onTap: () => _logout(context, ref),
                       borderRadius: BorderRadius.circular(50),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 15),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(50),
                           border: Border.all(
-                            color: const Color(0xFFF5C6C6),
+                            color: isDark
+                                ? AppColors.destructive
+                                    .withValues(alpha: 0.4)
+                                : const Color(0xFFF5C6C6),
                             width: 1.2,
                           ),
                         ),
@@ -621,13 +654,15 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
         InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             child: Row(
               children: [
                 Container(
@@ -643,11 +678,11 @@ class _SettingsRow extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF0F2744),
+                      color: cs.onSurface,
                     ),
                   ),
                 ),
@@ -657,14 +692,13 @@ class _SettingsRow extends StatelessWidget {
           ),
         ),
         if (showDivider)
-          const Divider(
+          Divider(
             height: 1,
             indent: 14,
             endIndent: 14,
-            color: Color(0xFFF1F5F9),
+            color: cs.outline.withValues(alpha: 0.5),
           ),
       ],
     );
   }
 }
-

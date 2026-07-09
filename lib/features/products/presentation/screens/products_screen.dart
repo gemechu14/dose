@@ -22,7 +22,6 @@ class ProductsScreen extends ConsumerWidget {
     final favorites = ref.watch(favoriteProductsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Color Shades'),
         leading: IconButton(
@@ -117,7 +116,7 @@ class ProductsScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref, String lineId) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -145,14 +144,15 @@ class _ProductShadeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       onLongPress: onAddToFormula,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: cs.outline),
         ),
         child: Column(
           children: [

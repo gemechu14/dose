@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
 
 class AppCard extends StatelessWidget {
   final Widget child;
@@ -23,6 +22,14 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor =
+        backgroundColor ?? Theme.of(context).colorScheme.surface;
+    final borderColor = Theme.of(context).colorScheme.outline;
+    final shadowColor = isDark
+        ? Colors.black.withValues(alpha: 0.25)
+        : Colors.black.withValues(alpha: 0.04);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -30,15 +37,14 @@ class AppCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         child: Ink(
           decoration: BoxDecoration(
-            color: backgroundColor ?? AppColors.surface,
+            color: surfaceColor,
             borderRadius: BorderRadius.circular(borderRadius),
-            border: border ??
-                Border.all(color: AppColors.border, width: 1),
+            border: border ?? Border.all(color: borderColor, width: 1),
             boxShadow: boxShadow ??
                 [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
+                    color: shadowColor,
+                    blurRadius: isDark ? 12 : 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -87,10 +93,9 @@ class AppCardHeader extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle!,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: AppColors.muted),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ],

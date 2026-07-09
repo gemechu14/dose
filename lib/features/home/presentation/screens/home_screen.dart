@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
@@ -15,7 +16,6 @@ class HomeScreen extends ConsumerWidget {
         : 'Sam';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -31,8 +31,6 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(height: 22),
                   const _ThisMonth(),
                   const SizedBox(height: 22),
-                  // const _MostUsedShades(),
-                  // const SizedBox(height: 22),
                   const _LowStockSection(),
                 ]),
               ),
@@ -52,6 +50,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
       child: Row(
@@ -60,39 +59,16 @@ class _Header extends StatelessWidget {
           Expanded(
             child: Text(
               'Hi, $firstName',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
+                color: cs.onSurface,
                 height: 1.15,
                 letterSpacing: -0.4,
               ),
             ),
           ),
-          // Stack(
-          //   clipBehavior: Clip.none,
-          //   children: [
-          //     IconButton(
-          //       icon: const Icon(Icons.notifications_none_rounded, size: 26),
-          //       onPressed: () {},
-          //       color: const Color(0xFF0F172A),
-          //     ),
-          //     Positioned(
-          //       top: 12,
-          //       right: 12,
-          //       child: Container(
-          //         width: 8,
-          //         height: 8,
-          //         decoration: BoxDecoration(
-          //           color: const Color(0xFFEF4444),
-          //           shape: BoxShape.circle,
-          //           border: Border.all(color: Colors.white, width: 1.5),
-          //         ),
-          //       ),
-          //     ),
-          //   ],
-          // ),
         ],
       ),
     );
@@ -218,6 +194,7 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -225,8 +202,10 @@ class _QuickActions extends StatelessWidget {
           Expanded(
             child: _QuickCard(
               icon: Icons.search_rounded,
-              iconBgColor: const Color(0xFFEFF6FF),
-              iconColor: const Color(0xFF2563EB),
+              iconBgColor: isDark
+                  ? AppColors.primary.withValues(alpha: 0.15)
+                  : const Color(0xFFEFF6FF),
+              iconColor: AppColors.primary,
               label: 'Find client',
               onTap: () => context.go(AppRoutes.customers),
             ),
@@ -235,8 +214,10 @@ class _QuickActions extends StatelessWidget {
           Expanded(
             child: _QuickCard(
               icon: Icons.history_rounded,
-              iconBgColor: const Color(0xFFECFDF5),
-              iconColor: const Color(0xFF10B981),
+              iconBgColor: isDark
+                  ? AppColors.accent.withValues(alpha: 0.15)
+                  : const Color(0xFFECFDF5),
+              iconColor: AppColors.accent,
               label: 'History',
               onTap: () => context.go(AppRoutes.formulaHistory),
             ),
@@ -264,8 +245,11 @@ class _QuickCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Material(
-      color: Colors.white,
+      color: cs.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -274,10 +258,11 @@ class _QuickCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE8EEF5)),
+            border: Border.all(color: cs.outline),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black
+                    .withValues(alpha: isDark ? 0.15 : 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -298,11 +283,11 @@ class _QuickCard extends StatelessWidget {
               Flexible(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F172A),
+                    color: cs.onSurface,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -315,25 +300,26 @@ class _QuickCard extends StatelessWidget {
   }
 }
 
-// ─── This Week ────────────────────────────────────────────────────────────────
+// ─── This Month ────────────────────────────────────────────────────────────────
 
 class _ThisMonth extends StatelessWidget {
   const _ThisMonth();
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'THIS MONTH',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF94A3B8),
+              color: cs.onSurfaceVariant,
               letterSpacing: 1.25,
             ),
           ),
@@ -361,16 +347,19 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
+        border: Border.all(color: cs.outline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -381,22 +370,22 @@ class _StatCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF94A3B8),
+              color: cs.onSurfaceVariant,
               letterSpacing: 0.7,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF0F172A),
+              color: cs.onSurface,
               letterSpacing: -0.3,
             ),
           ),
@@ -405,148 +394,6 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
-
-// ─── Most-Used Shades (temporarily hidden) ───────────────────────────────────
-/*
-class _MostUsedShades extends StatelessWidget {
-  const _MostUsedShades();
-
-  static const _shades = [
-    _ShadeItem(code: '9.1', name: 'Very Light Ash', hex: 'D4C4A8'),
-    _ShadeItem(code: '8.3', name: 'Golden Blonde', hex: 'C68642'),
-    _ShadeItem(code: '4.0', name: 'Medium Brown', hex: '5C3317'),
-    _ShadeItem(code: '7.1', name: 'Ash Blonde', hex: 'B8A898'),
-    _ShadeItem(code: '6.0', name: 'Dark Blonde', hex: '8B6914'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Icon(Icons.show_chart_rounded, size: 16, color: Color(0xFF94A3B8)),
-              SizedBox(width: 6),
-              Text(
-                'MOST-USED SHADES',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 1.25,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 72,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _shades.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (_, i) => _ShadeChip(shade: _shades[i]),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ShadeItem {
-  final String code;
-  final String name;
-  final String hex;
-  const _ShadeItem({
-    required this.code,
-    required this.name,
-    required this.hex,
-  });
-}
-
-class _ShadeChip extends StatelessWidget {
-  final _ShadeItem shade;
-  const _ShadeChip({required this.shade});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Color(int.parse('FF${shade.hex}', radix: 16));
-
-    return Container(
-      width: 168,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.35),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  shade.code,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  shade.name,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF94A3B8),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-*/
 
 // ─── Low Stock ────────────────────────────────────────────────────────────────
 
@@ -579,23 +426,24 @@ class _LowStockSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.warning_amber_rounded,
-                  size: 16, color: Color(0xFFF59E0B)),
-              SizedBox(width: 6),
+              const Icon(Icons.warning_amber_rounded,
+                  size: 16, color: AppColors.warning),
+              const SizedBox(width: 6),
               Text(
                 'LOW STOCK',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF94A3B8),
+                  color: cs.onSurfaceVariant,
                   letterSpacing: 1.25,
                 ),
               ),
@@ -637,16 +485,18 @@ class _LowStockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(int.parse('FF${item.hex}', radix: 16));
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
+        border: Border.all(color: cs.outline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -660,7 +510,7 @@ class _LowStockCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+              border: Border.all(color: cs.outline, width: 1.5),
             ),
           ),
           const SizedBox(width: 12),
@@ -670,20 +520,20 @@ class _LowStockCard extends StatelessWidget {
               children: [
                 Text(
                   '${item.code} · ${item.name}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: cs.onSurface,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   '${item.onHand}g on hand · reorder at ${item.reorderAt}g',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
-                    color: Color(0xFF94A3B8),
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -692,9 +542,11 @@ class _LowStockCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark
+                  ? AppColors.warning.withValues(alpha: 0.12)
+                  : Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFF59E0B)),
+              border: Border.all(color: AppColors.warning),
             ),
             child: const Text(
               'Low',

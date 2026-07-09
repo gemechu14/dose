@@ -13,12 +13,10 @@ void main() async {
   await Hive.initFlutter();
   await Hive.openBox<dynamic>('settings');
 
-  // Status bar style
+  // Transparent status bar — brightness is controlled per-screen via AppBarTheme
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarBrightness: Brightness.light,
-      statusBarIconBrightness: Brightness.dark,
     ),
   );
 

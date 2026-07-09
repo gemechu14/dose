@@ -18,7 +18,6 @@ class ProductLinesScreen extends ConsumerWidget {
     final linesAsync = ref.watch(productLinesProvider(brandId));
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Product Lines'),
         leading: IconButton(

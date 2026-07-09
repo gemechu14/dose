@@ -6,15 +6,16 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/skeleton_loader.dart';
 import '../../data/models/formula_model.dart';
 import '../providers/formulas_provider.dart';
+import '../../../customers/presentation/providers/customers_provider.dart';
 
 class FormulaDetailScreen extends ConsumerWidget {
   final String formulaId;
 
   const FormulaDetailScreen({super.key, required this.formulaId});
 
-  void _remix(BuildContext context, WidgetRef ref, FormulaModel formula) {
-    ref.read(formulaBuilderProvider.notifier).loadFromFormula(formula);
-    context.go('/mix');
+  void _remix(BuildContext context, FormulaModel formula) {
+    final id = Uri.encodeComponent(formula.id);
+    context.go('/mix?preloadFormulaId=$id');
   }
 
   String _formatDate(String? iso) {
@@ -58,25 +59,14 @@ class FormulaDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final formulaAsync = ref.watch(formulaDetailProvider(formulaId));
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Formula Details',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF0F172A),
-          ),
-        ),
+        title: const Text('Formula Details'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
-          color: const Color(0xFF0F172A),
           onPressed: () => context.pop(),
         ),
       ),
@@ -88,15 +78,15 @@ class FormulaDetailScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.cloud_off_rounded,
-                    size: 48, color: AppColors.muted),
+                Icon(Icons.cloud_off_rounded,
+                    size: 48, color: cs.onSurfaceVariant),
                 const SizedBox(height: 12),
                 Text(
                   err.toString().replaceFirst('Exception: ', ''),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
-                    color: AppColors.muted,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -110,6 +100,19 @@ class FormulaDetailScreen extends ConsumerWidget {
           ),
         ),
         data: (formula) {
+          final resolvedClientName = formula.customerId != null
+              ? ref
+                  .watch(customerDetailProvider(formula.customerId!))
+                  .valueOrNull
+                  ?.fullName
+                  .trim()
+              : null;
+          final clientName = (resolvedClientName != null &&
+                  resolvedClientName.isNotEmpty)
+              ? resolvedClientName
+              : ((formula.customerName?.trim().isNotEmpty ?? false)
+                  ? formula.customerName!.trim()
+                  : 'Unknown client');
           final totalAmount = formula.totalWeight;
           final totalCost = formula.computedCost;
 
@@ -130,7 +133,10 @@ class FormulaDetailScreen extends ConsumerWidget {
                               width: 52,
                               height: 52,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
+                                color: isDark
+                                    ? AppColors.primary
+                                        .withValues(alpha: 0.15)
+                                    : const Color(0xFFEFF6FF),
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: const Icon(
@@ -142,37 +148,36 @@ class FormulaDetailScreen extends ConsumerWidget {
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     _prettyTitle(formula),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 22,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF0F172A),
+                                      color: cs.onSurface,
                                       height: 1.2,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    formula.customerName?.isNotEmpty == true
-                                        ? formula.customerName!
-                                        : 'Client formula',
-                                    style: const TextStyle(
+                                    clientName,
+                                    style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
-                                      color: AppColors.muted,
+                                      color: cs.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'Service: ${formula.serviceType ?? '—'}  ·  Date: ${_formatDate(formula.createdAt)}',
-                                    style: const TextStyle(
+                                    'Client: $clientName  ·  Service: ${formula.serviceType ?? '—'}  ·  Date: ${_formatDate(formula.createdAt)}',
+                                    style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 12,
-                                      color: AppColors.mutedLight,
+                                      color: cs.onSurfaceVariant,
                                       height: 1.35,
                                     ),
                                   ),
@@ -192,19 +197,27 @@ class FormulaDetailScreen extends ConsumerWidget {
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFFBEB),
+                              color: isDark
+                                  ? AppColors.warning
+                                      .withValues(alpha: 0.1)
+                                  : const Color(0xFFFFFBEB),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: const Color(0xFFFDE68A),
+                                color: isDark
+                                    ? AppColors.warning
+                                        .withValues(alpha: 0.3)
+                                    : const Color(0xFFFDE68A),
                               ),
                             ),
                             child: Text(
                               formula.notes!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 13,
                                 fontStyle: FontStyle.italic,
-                                color: Color(0xFF92400E),
+                                color: isDark
+                                    ? const Color(0xFFFBBF24)
+                                    : const Color(0xFF92400E),
                                 height: 1.4,
                               ),
                             ),
@@ -218,26 +231,29 @@ class FormulaDetailScreen extends ConsumerWidget {
                           final lineCost = item.totalCost;
                           return Padding(
                             padding: EdgeInsets.only(
-                              bottom:
-                                  i == formula.items.length - 1 ? 0 : 10,
+                              bottom: i == formula.items.length - 1
+                                  ? 0
+                                  : 10,
                             ),
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: cs.surface,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color(0xFFE8EEF5),
-                                ),
+                                border: Border.all(color: cs.outline),
                               ),
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Container(
                                     width: 28,
                                     height: 28,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFEFF6FF),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? AppColors.primary
+                                              .withValues(alpha: 0.15)
+                                          : const Color(0xFFEFF6FF),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
@@ -264,12 +280,14 @@ class FormulaDetailScreen extends ConsumerWidget {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                _productLabel(item, i + 1),
-                                                style: const TextStyle(
+                                                _productLabel(
+                                                    item, i + 1),
+                                                style: TextStyle(
                                                   fontFamily: 'Inter',
                                                   fontSize: 14,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF0F172A),
+                                                  fontWeight:
+                                                      FontWeight.w700,
+                                                  color: cs.onSurface,
                                                   height: 1.3,
                                                 ),
                                               ),
@@ -289,10 +307,10 @@ class FormulaDetailScreen extends ConsumerWidget {
                                         const SizedBox(height: 6),
                                         Text(
                                           'Amount: ${item.amountUsed.toStringAsFixed(item.amountUsed == item.amountUsed.roundToDouble() ? 0 : 1)} ${item.unit}  ·  Unit cost: \$${(item.unitCost ?? 0).toStringAsFixed(2)}',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontFamily: 'Inter',
                                             fontSize: 12,
-                                            color: AppColors.muted,
+                                            color: cs.onSurfaceVariant,
                                             height: 1.35,
                                           ),
                                         ),
@@ -301,10 +319,10 @@ class FormulaDetailScreen extends ConsumerWidget {
                                           const SizedBox(height: 4),
                                           Text(
                                             'Waste: ${item.wasteAmount!.toStringAsFixed(1)} ${item.unit}',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontFamily: 'Inter',
                                               fontSize: 11,
-                                              color: AppColors.mutedLight,
+                                              color: cs.onSurfaceVariant,
                                             ),
                                           ),
                                         ],
@@ -318,27 +336,27 @@ class FormulaDetailScreen extends ConsumerWidget {
                         }),
 
                         const SizedBox(height: 20),
-                        const Divider(color: Color(0xFFF1F5F9)),
+                        Divider(color: cs.outline),
                         const SizedBox(height: 14),
 
                         Row(
                           children: [
-                            const Text(
+                            Text(
                               'Total amount',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
-                                color: AppColors.muted,
+                                color: cs.onSurfaceVariant,
                               ),
                             ),
                             const Spacer(),
                             Text(
                               '${totalAmount.toStringAsFixed(totalAmount == totalAmount.roundToDouble() ? 0 : 1)} g',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF0F172A),
+                                color: cs.onSurface,
                               ),
                             ),
                           ],
@@ -346,12 +364,12 @@ class FormulaDetailScreen extends ConsumerWidget {
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            const Text(
+                            Text(
                               'Estimated cost',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
-                                color: AppColors.muted,
+                                color: cs.onSurfaceVariant,
                               ),
                             ),
                             const Spacer(),
@@ -377,10 +395,8 @@ class FormulaDetailScreen extends ConsumerWidget {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => _remix(context, ref, formula),
+                      onPressed: () => _remix(context, formula),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(

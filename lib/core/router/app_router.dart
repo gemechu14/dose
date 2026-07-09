@@ -136,7 +136,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Mix tab = formula builder
           GoRoute(
             path: AppRoutes.mix,
-            builder: (_, __) => const FormulaBuilderScreen(),
+            builder: (_, state) => FormulaBuilderScreen(
+              preloadFormulaId: state.uri.queryParameters['preloadFormulaId'],
+            ),
           ),
           // History tab = past formulas
           GoRoute(

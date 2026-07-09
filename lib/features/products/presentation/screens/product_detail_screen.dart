@@ -21,7 +21,6 @@ class ProductDetailScreen extends ConsumerWidget {
     final favorites = ref.watch(favoriteProductsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: productAsync.when(
         loading: () => Scaffold(
           appBar: AppBar(),

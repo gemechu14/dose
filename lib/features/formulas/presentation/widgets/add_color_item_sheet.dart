@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../data/models/formula_model.dart';
@@ -75,6 +74,7 @@ class _AddColorItemSheetState extends ConsumerState<AddColorItemSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -129,9 +129,9 @@ class _AddColorItemSheetState extends ConsumerState<AddColorItemSheet> {
                       color: c.color,
                       borderRadius: BorderRadius.circular(8),
                       border: isSelected
-                          ? Border.all(color: AppColors.primary, width: 2.5)
+                          ? Border.all(color: cs.primary, width: 2.5)
                           : Border.all(
-                              color: AppColors.border, width: 1),
+                              color: cs.outline, width: 1),
                     ),
                     child: isSelected
                         ? const Icon(Icons.check_rounded,
@@ -235,15 +235,13 @@ class _AddColorItemSheetState extends ConsumerState<AddColorItemSheet> {
                           height: 36,
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.primary
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
+                                ? cs.primary
+                                : cs.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: isSelected
-                                  ? AppColors.primary
-                                  : AppColors.border,
+                                  ? cs.primary
+                                  : cs.outline,
                             ),
                           ),
                           child: Center(
@@ -254,7 +252,7 @@ class _AddColorItemSheetState extends ConsumerState<AddColorItemSheet> {
                                 fontWeight: FontWeight.w600,
                                 color: isSelected
                                     ? Colors.white
-                                    : AppColors.muted,
+                                    : cs.onSurfaceVariant,
                               ),
                             ),
                           ),

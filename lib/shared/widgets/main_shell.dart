@@ -50,7 +50,9 @@ class _BottomNav extends StatelessWidget {
         color: cs.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark ? 0.35 : 0.06,
+            ),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -129,7 +131,7 @@ class _BottomNav extends StatelessWidget {
                           fontSize: sideLabelSize,
                           fontWeight:
                               isMixActive ? FontWeight.w600 : FontWeight.w400,
-                          color: isMixActive ? AppColors.primary : AppColors.muted,
+                          color: isMixActive ? cs.primary : cs.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -183,7 +185,8 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? AppColors.primary : AppColors.muted;
+    final cs = Theme.of(context).colorScheme;
+    final color = isActive ? cs.primary : cs.onSurfaceVariant;
 
     return Expanded(
       child: GestureDetector(

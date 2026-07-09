@@ -29,14 +29,16 @@ class ColorChipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cs.outline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -97,13 +99,13 @@ class ColorChipCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name,
-                    style: AppTextStyles.labelBold,
+                    style: AppTextStyles.labelBold.copyWith(color: cs.onSurface),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 if (productCode != null)
                   Text(productCode!,
                       style: AppTextStyles.caption
-                          .copyWith(color: AppColors.muted)),
+                          .copyWith(color: cs.onSurfaceVariant)),
                 if (amountGrams != null || percentContribution != null) ...[
                   const SizedBox(height: 8),
                   Row(
@@ -180,12 +182,13 @@ class _InfoPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: highlighted
-            ? AppColors.primary.withOpacity(0.1)
-            : AppColors.surfaceVariant,
+            ? cs.primary.withOpacity(0.1)
+            : cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -193,13 +196,13 @@ class _InfoPill extends StatelessWidget {
         children: [
           Icon(icon,
               size: 11,
-              color: highlighted ? AppColors.primary : AppColors.muted),
+              color: highlighted ? cs.primary : cs.onSurfaceVariant),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               fontSize: 11,
-              color: highlighted ? AppColors.primary : AppColors.muted,
+              color: highlighted ? cs.primary : cs.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -222,17 +225,18 @@ class MixPreviewSwatch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final blended = _blendColors(items);
     if (blended == null) {
       return Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(size / 2),
         ),
-        child: const Icon(Icons.palette_outlined,
-            color: AppColors.muted, size: 28),
+        child: Icon(Icons.palette_outlined,
+            color: cs.onSurfaceVariant, size: 28),
       );
     }
 

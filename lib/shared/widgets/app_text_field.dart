@@ -42,10 +42,14 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.label),
+        Text(
+          label,
+          style: AppTextStyles.label.copyWith(color: cs.onSurfaceVariant),
+        ),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
@@ -60,7 +64,7 @@ class AppTextField extends StatelessWidget {
           maxLines: obscureText ? 1 : maxLines,
           readOnly: readOnly,
           onTap: onTap,
-          style: AppTextStyles.bodyMd.copyWith(color: AppColors.foreground),
+          style: AppTextStyles.bodyMd.copyWith(color: cs.onSurface),
           decoration: InputDecoration(
             hintText: hint,
             suffixIcon: suffix,

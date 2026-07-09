@@ -16,8 +16,11 @@ class CustomerListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Material(
-      color: Colors.white,
+      color: cs.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -25,12 +28,13 @@ class CustomerListTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cs.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE8EEF5)),
+            border: Border.all(color: cs.outline),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black
+                    .withValues(alpha: isDark ? 0.15 : 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -42,7 +46,9 @@ class CustomerListTile extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: isDark
+                      ? AppColors.primary.withValues(alpha: 0.15)
+                      : const Color(0xFFEFF6FF),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -64,11 +70,11 @@ class CustomerListTile extends StatelessWidget {
                   children: [
                     Text(
                       customer.fullName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F2744),
+                        color: cs.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -77,19 +83,19 @@ class CustomerListTile extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.phone_outlined,
                             size: 14,
-                            color: AppColors.muted,
+                            color: cs.onSurfaceVariant,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               _displayPhone!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 13,
-                                color: AppColors.muted,
+                                color: cs.onSurfaceVariant,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -101,14 +107,15 @@ class CustomerListTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (customer.formulaCount != null && customer.formulaCount! > 0)
+              if (customer.formulaCount != null &&
+                  customer.formulaCount! > 0)
                 Text(
                   'L${customer.formulaCount}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.mutedLight,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
             ],

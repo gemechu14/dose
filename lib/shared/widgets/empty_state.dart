@@ -21,6 +21,7 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -39,14 +40,15 @@ class EmptyState extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               title,
-              style: AppTextStyles.headingSm,
+              style: AppTextStyles.headingSm.copyWith(color: cs.onSurface),
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
                 subtitle!,
-                style: AppTextStyles.bodyMd.copyWith(color: AppColors.muted),
+                style: AppTextStyles.bodyMd
+                    .copyWith(color: cs.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -74,17 +76,19 @@ class ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined,
-                size: 52, color: AppColors.muted),
+            Icon(Icons.cloud_off_outlined,
+                size: 52, color: cs.onSurfaceVariant),
             const SizedBox(height: 16),
             Text(message,
-                style: AppTextStyles.bodyMd.copyWith(color: AppColors.muted),
+                style: AppTextStyles.bodyMd
+                    .copyWith(color: cs.onSurfaceVariant),
                 textAlign: TextAlign.center),
             if (onRetry != null) ...[
               const SizedBox(height: 20),

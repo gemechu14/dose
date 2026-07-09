@@ -20,7 +20,8 @@ class ProductPickerSheet extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<ProductPickerSheet> createState() => _ProductPickerSheetState();
+  ConsumerState<ProductPickerSheet> createState() =>
+      _ProductPickerSheetState();
 }
 
 class _ProductPickerSheetState extends ConsumerState<ProductPickerSheet> {
@@ -36,17 +37,20 @@ class _ProductPickerSheetState extends ConsumerState<ProductPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final catalogAsync = ref.watch(tenantCatalogProvider);
-    final stockItems = ref.watch(builderInventoryProvider).valueOrNull ?? [];
+    final stockItems =
+        ref.watch(builderInventoryProvider).valueOrNull ?? [];
     final stockMap = {for (final s in stockItems) s.tenantProductId: s};
+    final cs = Theme.of(context).colorScheme;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
@@ -56,7 +60,7 @@ class _ProductPickerSheetState extends ConsumerState<ProductPickerSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: cs.outline,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -66,12 +70,13 @@ class _ProductPickerSheetState extends ConsumerState<ProductPickerSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Select Product',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
                       ),
                     ),
                   ),
@@ -84,24 +89,16 @@ class _ProductPickerSheetState extends ConsumerState<ProductPickerSheet> {
             ),
             // ── Search ────────────────────────────────────────────────
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 20, vertical: 8),
               child: TextField(
                 controller: _search,
                 autofocus: true,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Search by name or code…',
-                  hintStyle: TextStyle(color: Colors.grey.shade400),
-                  prefixIcon: Icon(Icons.search,
-                      color: Colors.grey.shade400, size: 20),
-                  filled: true,
-                  fillColor: const Color(0xFFF4F6F9),
-                  contentPadding: const EdgeInsets.symmetric(
+                  prefixIcon: Icon(Icons.search, size: 20),
+                  contentPadding: EdgeInsets.symmetric(
                       horizontal: 16, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
                 ),
                 onChanged: (v) => setState(() => _query = v.trim()),
               ),
@@ -119,23 +116,27 @@ class _ProductPickerSheetState extends ConsumerState<ProductPickerSheet> {
                     return p.label.toLowerCase().contains(q) ||
                         p.name.toLowerCase().contains(q) ||
                         (p.code?.toLowerCase().contains(q) ?? false) ||
-                        (p.brandName?.toLowerCase().contains(q) ?? false);
+                        (p.brandName?.toLowerCase().contains(q) ??
+                            false);
                   }).toList();
 
                   // In-stock first
                   filtered.sort((a, b) {
-                    final aStock = stockMap[a.id]?.inStock ?? false;
-                    final bStock = stockMap[b.id]?.inStock ?? false;
+                    final aStock =
+                        stockMap[a.id]?.inStock ?? false;
+                    final bStock =
+                        stockMap[b.id]?.inStock ?? false;
                     if (aStock && !bStock) return -1;
                     if (!aStock && bStock) return 1;
                     return a.name.compareTo(b.name);
                   });
 
                   if (filtered.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
                         'No products found',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant),
                       ),
                     );
                   }
@@ -153,7 +154,8 @@ class _ProductPickerSheetState extends ConsumerState<ProductPickerSheet> {
                       return _ProductTile(
                         product: product,
                         inStock: inStock,
-                        onTap: () => Navigator.pop(context, product),
+                        onTap: () =>
+                            Navigator.pop(context, product),
                       );
                     },
                   );
@@ -187,17 +189,19 @@ class _ProductTile extends StatelessWidget {
       if (v != null) swatch = Color(v);
     }
 
+    final cs = Theme.of(context).colorScheme;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
-              onTap: onTap,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F6F9),
+            color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -207,10 +211,9 @@ class _ProductTile extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: swatch ?? Colors.grey.shade300,
+                  color: swatch ?? cs.outline,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: Colors.grey.shade200),
+                  border: Border.all(color: cs.outline),
                 ),
               ),
               const SizedBox(width: 12),
@@ -221,9 +224,10 @@ class _ProductTile extends StatelessWidget {
                   children: [
                     Text(
                       product.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
                       ),
                     ),
                     if (product.brandName != null ||
@@ -234,7 +238,7 @@ class _ProductTile extends StatelessWidget {
                             .join(' · '),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade500,
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                   ],
@@ -246,16 +250,17 @@ class _ProductTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
+                    color: AppColors.warning.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color: Colors.orange.shade200),
+                        color:
+                            AppColors.warning.withValues(alpha: 0.4)),
                   ),
                   child: Text(
                     'Not in stock',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.orange.shade700,
+                      color: AppColors.warning,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

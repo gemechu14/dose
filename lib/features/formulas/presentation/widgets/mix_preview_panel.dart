@@ -14,6 +14,7 @@ class MixPreviewPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final previewMode = ref.watch(mixPreviewModeProvider);
 
     return AppCard(
@@ -24,8 +25,8 @@ class MixPreviewPanel extends ConsumerWidget {
           // Header
           Row(
             children: [
-              const Icon(Icons.auto_awesome_rounded,
-                  size: 18, color: AppColors.primary),
+              Icon(Icons.auto_awesome_rounded,
+                  size: 18, color: cs.primary),
               const SizedBox(width: 8),
               Text('Mix Preview', style: AppTextStyles.headingSm),
               const Spacer(),
@@ -68,8 +69,8 @@ class MixPreviewPanel extends ConsumerWidget {
                         horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary
-                          : AppColors.surfaceVariant,
+                          ? cs.primary
+                          : cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -80,7 +81,7 @@ class MixPreviewPanel extends ConsumerWidget {
                         fontWeight: FontWeight.w500,
                         color: isSelected
                             ? Colors.white
-                            : AppColors.muted,
+                            : cs.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -102,9 +103,9 @@ class MixPreviewPanel extends ConsumerWidget {
       case MixPreviewMode.chips:
         return _buildChipsView();
       case MixPreviewMode.blended:
-        return _buildBlendedView();
+        return _buildBlendedView(context);
       case MixPreviewMode.beforeAfter:
-        return _buildBeforeAfterView();
+        return _buildBeforeAfterView(context);
     }
   }
 
@@ -153,7 +154,8 @@ class MixPreviewPanel extends ConsumerWidget {
     );
   }
 
-  Widget _buildBlendedView() {
+  Widget _buildBlendedView(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final coloredItems = builderState.items
         .where((i) => i.colorHex != null)
         .map((i) => (
@@ -183,7 +185,7 @@ class MixPreviewPanel extends ConsumerWidget {
               // Per-item bars
               ...builderState.items.map((item) {
                 final percent = builderState.percentInBowl(item);
-                Color itemColor = AppColors.primary;
+                Color itemColor = cs.primary;
                 if (item.colorHex != null) {
                   final hex =
                       item.colorHex!.replaceFirst('#', '');
@@ -208,8 +210,7 @@ class MixPreviewPanel extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: percent / 100,
-                            backgroundColor:
-                                AppColors.surfaceVariant,
+                            backgroundColor: cs.surfaceContainerHighest,
                             color: itemColor,
                             minHeight: 6,
                           ),
@@ -231,16 +232,17 @@ class MixPreviewPanel extends ConsumerWidget {
     );
   }
 
-  Widget _buildBeforeAfterView() {
+  Widget _buildBeforeAfterView(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
           child: _BeforeAfterCard(label: 'Before', icon: Icons.face_outlined),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Icon(Icons.arrow_forward_rounded,
-              color: AppColors.muted, size: 20),
+              color: cs.onSurfaceVariant, size: 20),
         ),
         Expanded(
           child: _BeforeAfterCard(
@@ -270,6 +272,7 @@ class _BeforeAfterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final coloredItems = items
         .where((i) => i.colorHex != null)
         .map((i) => (
@@ -283,9 +286,9 @@ class _BeforeAfterCard extends StatelessWidget {
     return Container(
       height: 90,
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cs.outline),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -293,7 +296,7 @@ class _BeforeAfterCard extends StatelessWidget {
           if (hasColor && coloredItems.isNotEmpty)
             MixPreviewSwatch(items: coloredItems, size: 44)
           else
-            Icon(icon, color: AppColors.muted, size: 28),
+            Icon(icon, color: cs.onSurfaceVariant, size: 28),
           const SizedBox(height: 4),
           Text(label, style: AppTextStyles.caption),
         ],

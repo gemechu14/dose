@@ -15,8 +15,7 @@ class CustomersListScreen extends ConsumerStatefulWidget {
       _CustomersListScreenState();
 }
 
-class _CustomersListScreenState
-    extends ConsumerState<CustomersListScreen> {
+class _CustomersListScreenState extends ConsumerState<CustomersListScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
 
@@ -43,9 +42,9 @@ class _CustomersListScreenState
   @override
   Widget build(BuildContext context) {
     final customersAsync = ref.watch(customersProvider);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/customers/new'),
         backgroundColor: AppColors.primary,
@@ -66,13 +65,13 @@ class _CustomersListScreenState
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: const Text(
+              child: Text(
                 'Clients',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F2744),
+                  color: cs.onSurface,
                   letterSpacing: -0.4,
                   height: 1.15,
                 ),
@@ -86,17 +85,15 @@ class _CustomersListScreenState
                   setState(() {});
                   ref.read(customersProvider.notifier).search(q);
                 },
-                style: const TextStyle(fontFamily: 'Inter', fontSize: 15),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 15,
+                    color: cs.onSurface),
                 decoration: InputDecoration(
                   hintText: 'Search by name or phone',
-                  hintStyle: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    color: AppColors.mutedLight,
-                  ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
-                    color: AppColors.muted,
+                    color: cs.onSurfaceVariant,
                     size: 22,
                   ),
                   suffixIcon: _searchController.text.isNotEmpty
@@ -110,26 +107,9 @@ class _CustomersListScreenState
                           },
                         )
                       : null,
-                  filled: true,
-                  fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 14,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.5,
-                    ),
                   ),
                 ),
               ),
@@ -153,12 +133,14 @@ class _CustomersListScreenState
                       onRefresh: onRefresh,
                       child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 88),
+                        padding:
+                            const EdgeInsets.fromLTRB(16, 24, 16, 88),
                         children: const [
                           EmptyState(
                             icon: Icons.people_outline_rounded,
                             title: 'No clients yet',
-                            subtitle: 'Add your first client to get started',
+                            subtitle:
+                                'Add your first client to get started',
                           ),
                         ],
                       ),
@@ -173,7 +155,8 @@ class _CustomersListScreenState
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
                       itemCount: customers.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: 10),
                       itemBuilder: (_, i) => CustomerListTile(
                         customer: customers[i],
                         onTap: () => context

@@ -34,15 +34,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(AppStrings.inventory),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.muted,
-          indicatorColor: AppColors.primary,
+          labelColor: cs.primary,
+          unselectedLabelColor: cs.onSurfaceVariant,
+          indicatorColor: cs.primary,
           indicatorSize: TabBarIndicatorSize.label,
           tabs: const [
             Tab(text: 'All Stock'),
@@ -134,6 +134,7 @@ class _InventoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     Color chipColor = AppColors.muted;
     if (item.colorHex != null) {
       final hex = item.colorHex!.replaceFirst('#', '');
@@ -227,8 +228,7 @@ class _InventoryTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: stockPercent,
-                          backgroundColor:
-                              AppColors.surfaceVariant,
+                          backgroundColor: cs.surfaceContainerHighest,
                           color: stockColor,
                           minHeight: 5,
                         ),

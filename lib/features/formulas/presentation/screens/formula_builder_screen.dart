@@ -8,16 +8,48 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/storage/secure_storage.dart';
+import '../../../../core/theme/theme_colors.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../tenants/presentation/providers/tenant_provider.dart';
 import '../../data/models/formula_model.dart';
+import '../../data/repositories/formulas_repository_impl.dart';
 import '../../domain/mix_models.dart';
 import '../providers/formulas_provider.dart';
 import '../providers/mix_builder_provider.dart';
 import '../../../../shared/widgets/confirm_dialog.dart';
 import '../widgets/formula_droplet.dart';
 import '../widgets/product_picker_sheet.dart';
+
+List<String> _candidateFormulaIdsFromVisitResponse(Map<String, dynamic> body) {
+  final ids = <String>{};
+
+  void addId(Object? value) {
+    if (value is String && value.isNotEmpty) ids.add(value);
+  }
+
+  addId(body['formula_id']);
+  addId(body['id']);
+
+  for (final key in ['formulas', 'items', 'formula_ids']) {
+    final value = body[key];
+    if (value is! List) continue;
+    for (final entry in value) {
+      if (entry is String) {
+        addId(entry);
+      } else if (entry is Map<String, dynamic>) {
+        addId(entry['id']);
+        addId(entry['formula_id']);
+      } else if (entry is Map) {
+        addId(entry['id']);
+        addId(entry['formula_id']);
+      }
+    }
+  }
+
+  return ids.toList();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FormulaBuilderScreen
@@ -138,7 +170,50 @@ class _FormulaBuilderScreenState
       );
 
       final dio = ref.read(dioProvider);
-      await dio.post('/formulas/visit', data: payload);
+      final response = await dio.post('/formulas/visit', data: payload);
+      String? savedFormulaId;
+      final formulasRepo = ref.read(formulasRepositoryProvider);
+      final formulaName = (payload['formula_name'] ?? '').toString().trim();
+      final body = response.data;
+      if (body is Map<String, dynamic>) {
+        for (final id in _candidateFormulaIdsFromVisitResponse(body)) {
+          final check = await formulasRepo.getFormula(id);
+          await check.fold(
+            (_) async {},
+            (formula) async {
+              savedFormulaId ??= id;
+              final currentName = (formula.formulaName ?? '').trim();
+              if (currentName != formulaName) {
+                await formulasRepo.updateFormula(
+                  id,
+                  {'formula_name': formulaName},
+                );
+              }
+            },
+          );
+        }
+      }
+
+      if (savedFormulaId == null) {
+        final customerId = (payload['customer_id'] ?? '').toString();
+        final listResult = await formulasRepo.getFormulas(page: 1, pageSize: 20);
+        listResult.fold(
+          (_) {},
+          (page) {
+            for (final f in page.results) {
+              final sameCustomer = f.customerId == customerId;
+              final sameName = (f.formulaName ?? '').trim() == formulaName;
+              if (sameCustomer && sameName) {
+                savedFormulaId = f.id;
+                break;
+              }
+            }
+            if (savedFormulaId == null && page.results.isNotEmpty) {
+              savedFormulaId = page.results.first.id;
+            }
+          },
+        );
+      }
 
       ref.invalidate(formulasProvider);
       ref.invalidate(builderInventoryProvider);
@@ -160,6 +235,11 @@ class _FormulaBuilderScreenState
             'Formula finalized — $bowlCount bowl${bowlCount > 1 ? 's' : ''} saved'),
         backgroundColor: AppColors.success,
       ));
+      if (savedFormulaId != null) {
+        context.push('/formulas/$savedFormulaId');
+      } else {
+        context.push(AppRoutes.formulaHistory);
+      }
     } on DioException catch (e) {
       _snack(_stockAwareErrorMessage(e));
     } catch (e) {
@@ -211,239 +291,15 @@ class _FormulaBuilderScreenState
         .toList();
     if (indexedBowls.isEmpty) return false;
 
-    final controllers = <int, TextEditingController>{
-      for (final e in indexedBowls)
-        e.key: TextEditingController(text: e.value.leftoverG),
-    };
-    final errors = <int, String>{for (final e in indexedBowls) e.key: ''};
-
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) {
-          bool hasValidationError = false;
-          for (final e in indexedBowls) {
-            final bowl = e.value;
-            final waste = double.tryParse(controllers[e.key]!.text.trim()) ?? 0;
-            if (waste < 0 || waste > bowl.totalGrams) {
-              hasValidationError = true;
-              break;
-            }
-          }
-
-          return Dialog.fullscreen(
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            indexedBowls.length > 1
-                                ? 'Finalize ${indexedBowls.length} bowls'
-                                : 'Finalize formula',
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      child: Column(
-                        children: indexedBowls.map((entry) {
-                          final bowlIndex = entry.key;
-                          final bowl = entry.value;
-                          final wasteText = controllers[bowlIndex]!.text.trim();
-                          final waste = double.tryParse(wasteText) ?? 0;
-                          final split =
-                              bowl.copyWith(leftoverG: wasteText).computeWasteByProduct();
-
-                          String splitPreview;
-                          if (waste <= 0) {
-                            splitPreview = 'No waste entered';
-                          } else if (split.isEmpty) {
-                            splitPreview = 'No split available';
-                          } else {
-                            final colorWaste = split.entries
-                                .where((e) {
-                                  final item = bowl.allItems.firstWhere(
-                                      (i) => i.product.id == e.key,
-                                      orElse: () => MixItem(
-                                          id: 'x',
-                                          product: const TenantProduct(
-                                              id: 'x', name: 'Unknown'),
-                                          amount: 0));
-                                  return !item.product.isDeveloper;
-                                })
-                                .fold(0.0, (s, e) => s + e.value);
-                            final devWaste =
-                                split.values.fold(0.0, (s, v) => s + v) - colorWaste;
-                            splitPreview =
-                                '${colorWaste.toStringAsFixed(1)}g color · ${devWaste.toStringAsFixed(1)}g developer';
-                          }
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  bowl.label.trim().isEmpty
-                                      ? 'Bowl ${bowlIndex + 1}'
-                                      : bowl.label,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primary),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Mixed ${bowl.totalGrams.toStringAsFixed(1)}g · ${ratioLabel(bowl.developerRatio)} · ${bowl.batches.length} batch${bowl.batches.length > 1 ? 'es' : ''}',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: AppColors.muted),
-                                ),
-                                const SizedBox(height: 10),
-                                TextField(
-                                  controller: controllers[bowlIndex],
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(decimal: true),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(
-                                        RegExp(r'^\d*\.?\d*')),
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: 'Total bowl waste',
-                                    suffixText: 'g',
-                                    errorText: errors[bowlIndex]!.isEmpty
-                                        ? null
-                                        : errors[bowlIndex],
-                                    border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                  onChanged: (_) => setDlgState(() {
-                                    errors[bowlIndex] = '';
-                                  }),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Waste split preview: $splitPreview',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: AppColors.mutedLight),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Batches: ${bowl.batches.asMap().entries.map((b) => 'Batch ${b.key + 1} (${b.value.isLocked ? 'locked' : 'current'}): ${b.value.items.where((i) => i.amount > 0).length} items').join('  ·  ')}',
-                                  style: const TextStyle(
-                                      fontSize: 11, color: AppColors.muted),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      12,
-                      16,
-                      12 + MediaQuery.of(ctx).padding.bottom,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 10,
-                          offset: const Offset(0, -2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(ctx).pop(false),
-                            child: const Text('Cancel'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton(
-                            onPressed: hasValidationError
-                                ? null
-                                : () {
-                                    bool valid = true;
-                                    for (final e in indexedBowls) {
-                                      final bowl = e.value;
-                                      final parsed = double.tryParse(
-                                              controllers[e.key]!.text.trim()) ??
-                                          0;
-                                      if (parsed < 0) {
-                                        errors[e.key] = 'Waste cannot be negative';
-                                        valid = false;
-                                      } else if (parsed > bowl.totalGrams) {
-                                        errors[e.key] =
-                                            'Waste cannot exceed ${bowl.totalGrams.toStringAsFixed(1)}g mixed';
-                                        valid = false;
-                                      } else {
-                                        errors[e.key] = '';
-                                      }
-                                    }
-                                    if (!valid) {
-                                      setDlgState(() {});
-                                      return;
-                                    }
-
-                                    for (final e in indexedBowls) {
-                                      final text = controllers[e.key]!.text.trim();
-                                      final parsed = double.tryParse(text) ?? 0;
-                                      ref.read(mixBuilderProvider.notifier).setBowlWaste(
-                                            e.key,
-                                            parsed > 0 ? parsed.toString() : '',
-                                          );
-                                    }
-                                    _scheduleSave();
-                                    Navigator.of(ctx).pop(true);
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Confirm & finalize'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+      builder: (_) => _FinalizeFormulaDialog(
+        indexedBowls: indexedBowls,
+        onSaved: _scheduleSave,
+        initialFormulaName: st.sessionName ?? '',
       ),
     );
-
-    for (final c in controllers.values) {
-      c.dispose();
-    }
     return confirmed ?? false;
   }
 
@@ -460,7 +316,6 @@ class _FormulaBuilderScreenState
     final st = ref.watch(mixBuilderProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
       body: SafeArea(
         child: Column(
           children: [
@@ -517,18 +372,19 @@ class _FormulaBuilderScreenState
   }
 
   Widget _buildHeader(BuildContext context, MixBuilderState st) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: cs.surface,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
               'Formula',
               style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.foreground),
+                  color: cs.onSurface),
             ),
           ),
           // AI badge — hidden
@@ -584,6 +440,7 @@ class _BowlTabs extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
       height: 42,
       child: ListView.separated(
@@ -602,13 +459,11 @@ class _BowlTabs extends ConsumerWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: active
-                    ? AppColors.primary
-                    : Colors.white,
+                color: active ? cs.primary : cs.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: active
                     ? null
-                    : Border.all(color: const Color(0xFFE2E8F0)),
+                    : Border.all(color: cs.outline),
               ),
               alignment: Alignment.center,
               child: Text(
@@ -616,7 +471,7 @@ class _BowlTabs extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: active ? Colors.white : AppColors.muted,
+                  color: active ? Colors.white : cs.onSurfaceVariant,
                 ),
               ),
             ),
@@ -658,6 +513,7 @@ class _ClientServiceCardState
   @override
   Widget build(BuildContext context) {
     final st = ref.watch(mixBuilderProvider);
+    final cs = Theme.of(context).colorScheme;
     final customersAsync = ref.watch(builderCustomersProvider);
     final locationsAsync = ref.watch(tenantLocationsProvider); // used silently
 
@@ -674,8 +530,8 @@ class _ClientServiceCardState
             child: _PickerBox(
               child: Row(
                 children: [
-                  const Icon(Icons.person_outline,
-                      size: 18, color: AppColors.muted),
+                  Icon(Icons.person_outline,
+                      size: 18, color: cs.onSurfaceVariant),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -683,8 +539,8 @@ class _ClientServiceCardState
                       style: TextStyle(
                         fontSize: 14,
                         color: st.customerName != null
-                            ? AppColors.foreground
-                            : AppColors.muted,
+                            ? cs.onSurface
+                            : cs.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -696,12 +552,12 @@ class _ClientServiceCardState
                             .setCustomer(null);
                         widget.onAutosave();
                       },
-                      child: const Icon(Icons.close,
-                          size: 18, color: AppColors.muted),
+                      child: Icon(Icons.close,
+                          size: 18, color: cs.onSurfaceVariant),
                     )
                   else
-                    const Icon(Icons.expand_more,
-                        size: 18, color: AppColors.muted),
+                    Icon(Icons.expand_more,
+                        size: 18, color: cs.onSurfaceVariant),
                 ],
               ),
             ),
@@ -767,15 +623,17 @@ class _CustomerDropdown extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = context.isDark;
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.sheetSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cs.outline),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
               blurRadius: 8,
               offset: const Offset(0, 2))
         ],
@@ -793,7 +651,7 @@ class _CustomerDropdown extends ConsumerWidget {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 filled: true,
-                fillColor: const Color(0xFFF4F6F9),
+                fillColor: context.subtleFill,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -939,18 +797,20 @@ class _HistoryChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = context.isDark;
     return GestureDetector(
       onTap: () => context.push('/formulas/${formula.id}'),
       child: Container(
         width: 150,
         padding: const EdgeInsets.fromLTRB(10, 10, 6, 6),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: cs.outline),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -961,15 +821,18 @@ class _HistoryChip extends ConsumerWidget {
           children: [
             Text(
               formula.displayTitle,
-              style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
             Text(
               formula.displayService,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              style: TextStyle(
+                  fontSize: 11, color: cs.onSurfaceVariant),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1085,6 +948,7 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
   @override
   Widget build(BuildContext context) {
     final st = ref.watch(mixBuilderProvider);
+    final cs = Theme.of(context).colorScheme;
     if (widget.bowlIndex >= st.bowls.length) return const SizedBox.shrink();
     final bowl = st.bowls[widget.bowlIndex];
     const ratios = DeveloperRatio.values;
@@ -1173,14 +1037,10 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                     margin: const EdgeInsets.only(right: 4),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: active
-                          ? AppColors.primary
-                          : const Color(0xFFF4F6F9),
+                      color: active ? cs.primary : context.subtleFill,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                          color: active
-                              ? AppColors.primary
-                              : AppColors.border),
+                          color: active ? cs.primary : cs.outline),
                     ),
                     child: Text(
                       label,
@@ -1188,7 +1048,7 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: active ? Colors.white : AppColors.muted,
+                        color: active ? Colors.white : cs.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -1237,7 +1097,7 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.sheetSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -1312,9 +1172,10 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
             minChildSize: 0.5,
             maxChildSize: 1.0,
             builder: (_, scrollCtrl) => Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              decoration: BoxDecoration(
+                color: ctx.sheetSurface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
                 children: [
@@ -1325,7 +1186,7 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                        color: Theme.of(ctx).dividerColor.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -1357,16 +1218,19 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                             children: [
                               Text(
                                 bowlName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w800,
+                                  color: Theme.of(ctx).colorScheme.onSurface,
                                 ),
                               ),
                               Text(
                                 'Batch ${bowl.batches.length} complete?',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.grey.shade500,
+                                  color: Theme.of(ctx)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -1376,7 +1240,7 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                           onPressed: () => Navigator.pop(ctx),
                           icon: const Icon(Icons.close_rounded),
                           style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFFF4F6F9),
+                            backgroundColor: ctx.subtleFill,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10)),
                           ),
@@ -1397,9 +1261,10 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F9FB),
+                            color: ctx.subtleCard,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border),
+                            border: Border.all(
+                                color: Theme.of(ctx).colorScheme.outline),
                           ),
                           child: Row(
                             children: [
@@ -1446,27 +1311,19 @@ class _BowlCardState extends ConsumerState<_BowlCard> {
                           controller: wasteCtrl,
                           keyboardType: const TextInputType.numberWithOptions(
                               decimal: true),
+                          style: TextStyle(
+                              color: Theme.of(ctx).colorScheme.onSurface),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                                 RegExp(r'^\d*\.?\d*')),
                           ],
-                          decoration: InputDecoration(
+                          decoration: mixInputDecoration(
+                            ctx,
                             labelText: 'Total bowl waste',
                             suffixText: 'g',
                             errorText:
                                 wasteError.isEmpty ? null : wasteError,
-                            filled: true,
-                            fillColor: const Color(0xFFF4F6F9),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  const BorderSide(color: AppColors.border),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  const BorderSide(color: AppColors.border),
-                            ),
+                            borderRadius: 12,
                           ),
                           onChanged: (_) => setDlgState(() {}),
                         ),
@@ -1683,6 +1540,7 @@ class _ModeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1690,11 +1548,11 @@ class _ModeOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.08)
-              : const Color(0xFFF4F6F9),
+              ? cs.primary.withValues(alpha: 0.08)
+              : context.subtleFill,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border),
+              color: selected ? cs.primary : cs.outline),
         ),
         child: Row(
           children: [
@@ -1703,7 +1561,7 @@ class _ModeOption extends StatelessWidget {
                   ? Icons.radio_button_checked
                   : Icons.radio_button_off,
               size: 18,
-              color: selected ? AppColors.primary : AppColors.muted,
+              color: selected ? cs.primary : cs.onSurfaceVariant,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1714,12 +1572,10 @@ class _ModeOption extends StatelessWidget {
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: selected
-                              ? AppColors.primary
-                              : AppColors.foreground)),
+                          color: selected ? cs.primary : cs.onSurface)),
                   Text(subtitle,
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade500)),
+                          fontSize: 11, color: cs.onSurfaceVariant)),
                 ],
               ),
             ),
@@ -1918,6 +1774,7 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final product = widget.item.product;
     final hex = (product.colorHex ?? '').replaceFirst('#', '');
     Color? swatch;
@@ -1927,6 +1784,7 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
     }
     final isDevAutoCalc =
         product.isDeveloper && widget.ratio != DeveloperRatio.manual;
+    final isDisabled = widget.locked || isDevAutoCalc;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -1936,9 +1794,9 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: swatch ?? Colors.grey.shade200,
+              color: swatch ?? cs.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: cs.outline),
             ),
           ),
           const SizedBox(width: 10),
@@ -1947,8 +1805,10 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(product.label,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 if (product.isDeveloper)
@@ -1959,8 +1819,8 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
                     style: TextStyle(
                       fontSize: 11,
                       color: isDevAutoCalc
-                          ? AppColors.primary
-                          : Colors.grey.shade400,
+                          ? cs.primary
+                          : cs.onSurfaceVariant,
                     ),
                   ),
               ],
@@ -1972,7 +1832,8 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
             child: TextField(
               controller: _ctrl,
               focusNode: _focus,
-              enabled: !widget.locked && !isDevAutoCalc,
+              enabled: !isDisabled,
+              style: TextStyle(color: cs.onSurface, fontSize: 14),
               keyboardType: const TextInputType.numberWithOptions(
                   decimal: true),
               inputFormatters: [
@@ -1980,35 +1841,16 @@ class _ItemRowState extends ConsumerState<_ItemRow> {
                     RegExp(r'^\d*\.?\d*')),
               ],
               textAlign: TextAlign.center,
-              decoration: InputDecoration(
+              decoration: mixInputDecoration(
+                context,
                 hintText: '0',
-                hintStyle:
-                    TextStyle(color: Colors.grey.shade400),
                 suffixText: 'g',
-                suffixStyle: TextStyle(
-                    color: Colors.grey.shade500, fontSize: 12),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 8),
-                filled: true,
-                fillColor: widget.locked || isDevAutoCalc
-                    ? Colors.grey.shade100
-                    : const Color(0xFFF4F6F9),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide:
-                      const BorderSide(color: AppColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide:
-                      const BorderSide(color: AppColors.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary),
-                ),
+                borderRadius: 8,
+                fillColor: isDisabled
+                    ? cs.onSurface.withValues(alpha: 0.06)
+                    : null,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               ),
               onChanged: _onAmountChanged,
             ),
@@ -2047,27 +1889,28 @@ class _AddBowlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _showPicker(context),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: cs.outline),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.add_circle_outline,
-                size: 18, color: AppColors.primary),
-            SizedBox(width: 8),
+                size: 18, color: cs.primary),
+            const SizedBox(width: 8),
             Text('Add another bowl',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.primary)),
+                    color: cs.primary)),
           ],
         ),
       ),
@@ -2110,7 +1953,7 @@ class _AddBowlButton extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.sheetSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -2447,9 +2290,9 @@ class _PreviewCard extends ConsumerWidget {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: ctx.sheetSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
@@ -2459,7 +2302,7 @@ class _PreviewCard extends ConsumerWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: Theme.of(ctx).dividerColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -2469,10 +2312,12 @@ class _PreviewCard extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     'Color preview',
                     style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w800),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(ctx).colorScheme.onSurface),
                   ),
                   const Spacer(),
                   if (bowlLabel.isNotEmpty)
@@ -2494,7 +2339,7 @@ class _PreviewCard extends ConsumerWidget {
                     onPressed: () => Navigator.pop(ctx),
                     icon: const Icon(Icons.close_rounded),
                     style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFFF4F6F9),
+                      backgroundColor: ctx.subtleFill,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                     ),
@@ -2630,6 +2475,7 @@ class _NotesCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2639,23 +2485,11 @@ class _NotesCard extends ConsumerWidget {
           TextField(
             controller: ctrl,
             maxLines: 4,
-            decoration: InputDecoration(
+            style: TextStyle(color: cs.onSurface, fontSize: 14, height: 1.45),
+            decoration: mixInputDecoration(
+              context,
               hintText: 'Timing, developer notes, aftercare…',
-              hintStyle:
-                  TextStyle(color: Colors.grey.shade400, fontSize: 14),
-              filled: true,
-              fillColor: const Color(0xFFF4F6F9),
               contentPadding: const EdgeInsets.all(14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: AppColors.border),
-              ),
             ),
             onChanged: (v) {
               ref.read(mixBuilderProvider.notifier).setNotes(v);
@@ -2679,6 +2513,8 @@ class _SaveBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = context.isDark;
     final st = ref.watch(mixBuilderProvider);
     final bowlCount =
         st.bowls.where((b) => b.allItems.any((i) => i.amount > 0)).length;
@@ -2706,15 +2542,23 @@ class _SaveBar extends ConsumerWidget {
             width: double.infinity,
             padding:
                 const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            color: Colors.amber.shade50,
+            color: isDark
+                ? AppColors.warning.withValues(alpha: 0.15)
+                : Colors.amber.shade50,
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded,
-                    size: 16, color: Colors.amber.shade700),
+                    size: 16,
+                    color: isDark
+                        ? AppColors.warning
+                        : Colors.amber.shade700),
                 const SizedBox(width: 8),
                 Text(hint,
                     style: TextStyle(
-                        fontSize: 12, color: Colors.amber.shade800)),
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.warning
+                            : Colors.amber.shade800)),
               ],
             ),
           ),
@@ -2722,10 +2566,10 @@ class _SaveBar extends ConsumerWidget {
           padding: EdgeInsets.fromLTRB(
               20, 12, 20, 12 + MediaQuery.of(context).padding.bottom),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cs.surface,
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
                   blurRadius: 12,
                   offset: const Offset(0, -3))
             ],
@@ -2736,10 +2580,14 @@ class _SaveBar extends ConsumerWidget {
             child: ElevatedButton(
               onPressed: (saving || !canSave) ? null : onSave,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: cs.primary,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade200,
-                disabledForegroundColor: Colors.grey.shade400,
+                disabledBackgroundColor: isDark
+                    ? cs.onSurface.withValues(alpha: 0.12)
+                    : Colors.grey.shade200,
+                disabledForegroundColor: isDark
+                    ? cs.onSurfaceVariant
+                    : Colors.grey.shade400,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
@@ -2763,21 +2611,369 @@ class _SaveBar extends ConsumerWidget {
 //  Shared helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+InputDecoration mixInputDecoration(
+  BuildContext context, {
+  String? labelText,
+  String? hintText,
+  String? suffixText,
+  String? errorText,
+  double borderRadius = 10,
+  bool filled = true,
+  Color? fillColor,
+  EdgeInsetsGeometry? contentPadding,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final radius = BorderRadius.circular(borderRadius);
+  // In dark mode, fill and outline are often the same hex — use a lighter border
+  // and a slightly different fill so fields are visible before focus.
+  final enabledBorderColor = isDark
+      ? cs.onSurface.withValues(alpha: 0.32)
+      : cs.outline;
+  final effectiveFill =
+      fillColor ?? (isDark ? cs.surface : context.subtleFill);
+
+  OutlineInputBorder outlineBorder(Color color, [double width = 1]) =>
+      OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: color, width: width),
+      );
+
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    suffixText: suffixText,
+    errorText: errorText,
+    filled: filled,
+    fillColor: effectiveFill,
+    labelStyle: TextStyle(color: cs.onSurfaceVariant),
+    floatingLabelStyle: TextStyle(color: cs.onSurfaceVariant),
+    hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+    suffixStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+    isDense: true,
+    contentPadding: contentPadding ??
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    border: outlineBorder(enabledBorderColor),
+    enabledBorder: outlineBorder(enabledBorderColor),
+    focusedBorder: outlineBorder(cs.primary, 2),
+    errorBorder: outlineBorder(cs.error),
+    focusedErrorBorder: outlineBorder(cs.error, 2),
+  );
+}
+
+class _FinalizeFormulaDialog extends ConsumerStatefulWidget {
+  final List<MapEntry<int, MixBowl>> indexedBowls;
+  final VoidCallback onSaved;
+  final String initialFormulaName;
+
+  const _FinalizeFormulaDialog({
+    required this.indexedBowls,
+    required this.onSaved,
+    this.initialFormulaName = '',
+  });
+
+  @override
+  ConsumerState<_FinalizeFormulaDialog> createState() =>
+      _FinalizeFormulaDialogState();
+}
+
+class _FinalizeFormulaDialogState extends ConsumerState<_FinalizeFormulaDialog> {
+  late final Map<int, TextEditingController> _controllers;
+  late final Map<int, String> _errors;
+  late final TextEditingController _formulaNameCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _formulaNameCtrl =
+        TextEditingController(text: widget.initialFormulaName);
+    _controllers = {
+      for (final e in widget.indexedBowls)
+        e.key: TextEditingController(text: e.value.leftoverG),
+    };
+    _errors = {for (final e in widget.indexedBowls) e.key: ''};
+  }
+
+  @override
+  void dispose() {
+    _formulaNameCtrl.dispose();
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  bool get _hasValidationError {
+    for (final e in widget.indexedBowls) {
+      final bowl = e.value;
+      final waste =
+          double.tryParse(_controllers[e.key]!.text.trim()) ?? 0;
+      if (waste < 0 || waste > bowl.totalGrams) return true;
+    }
+    return false;
+  }
+
+  void _confirm() {
+    var valid = true;
+    for (final e in widget.indexedBowls) {
+      final bowl = e.value;
+      final parsed =
+          double.tryParse(_controllers[e.key]!.text.trim()) ?? 0;
+      if (parsed < 0) {
+        _errors[e.key] = 'Waste cannot be negative';
+        valid = false;
+      } else if (parsed > bowl.totalGrams) {
+        _errors[e.key] =
+            'Waste cannot exceed ${bowl.totalGrams.toStringAsFixed(1)}g mixed';
+        valid = false;
+      } else {
+        _errors[e.key] = '';
+      }
+    }
+    if (!valid) {
+      setState(() {});
+      return;
+    }
+
+    for (final e in widget.indexedBowls) {
+      final text = _controllers[e.key]!.text.trim();
+      final parsed = double.tryParse(text) ?? 0;
+      ref.read(mixBuilderProvider.notifier).setBowlWaste(
+            e.key,
+            parsed > 0 ? parsed.toString() : '',
+          );
+    }
+    ref
+        .read(mixBuilderProvider.notifier)
+        .setSessionName(_formulaNameCtrl.text.trim());
+    widget.onSaved();
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = context.isDark;
+
+    return Dialog.fullscreen(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.indexedBowls.length > 1
+                          ? 'Finalize ${widget.indexedBowls.length} bowls'
+                          : 'Finalize formula',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _formulaNameCtrl,
+                      style: TextStyle(color: cs.onSurface),
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: mixInputDecoration(
+                        context,
+                        labelText: 'Formula name (optional)',
+                        hintText: 'e.g. Sarah — roots touch-up',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...widget.indexedBowls.map((entry) {
+                    final bowlIndex = entry.key;
+                    final bowl = entry.value;
+                    final wasteText = _controllers[bowlIndex]!.text.trim();
+                    final waste = double.tryParse(wasteText) ?? 0;
+                    final split = bowl
+                        .copyWith(leftoverG: wasteText)
+                        .computeWasteByProduct();
+
+                    String splitPreview;
+                    if (waste <= 0) {
+                      splitPreview = 'No waste entered';
+                    } else if (split.isEmpty) {
+                      splitPreview = 'No split available';
+                    } else {
+                      final colorWaste = split.entries
+                          .where((e) {
+                            final item = bowl.allItems.firstWhere(
+                                (i) => i.product.id == e.key,
+                                orElse: () => MixItem(
+                                    id: 'x',
+                                    product: const TenantProduct(
+                                        id: 'x', name: 'Unknown'),
+                                    amount: 0));
+                            return !item.product.isDeveloper;
+                          })
+                          .fold(0.0, (s, e) => s + e.value);
+                      final devWaste =
+                          split.values.fold(0.0, (s, v) => s + v) - colorWaste;
+                      splitPreview =
+                          '${colorWaste.toStringAsFixed(1)}g color · ${devWaste.toStringAsFixed(1)}g developer';
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: context.subtleCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: cs.outline),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            bowl.label.trim().isEmpty
+                                ? 'Bowl ${bowlIndex + 1}'
+                                : bowl.label,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: cs.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Mixed ${bowl.totalGrams.toStringAsFixed(1)}g · ${ratioLabel(bowl.developerRatio)} · ${bowl.batches.length} batch${bowl.batches.length > 1 ? 'es' : ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _controllers[bowlIndex],
+                            style: TextStyle(color: cs.onSurface),
+                            keyboardType:
+                                const TextInputType.numberWithOptions(
+                                    decimal: true),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d*')),
+                            ],
+                            decoration: mixInputDecoration(
+                              context,
+                              labelText: 'Total bowl waste',
+                              suffixText: 'g',
+                              errorText: _errors[bowlIndex]!.isEmpty
+                                  ? null
+                                  : _errors[bowlIndex],
+                            ),
+                            onChanged: (_) => setState(() {
+                              _errors[bowlIndex] = '';
+                            }),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Waste split preview: $splitPreview',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant
+                                  .withValues(alpha: 0.85),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Batches: ${bowl.batches.asMap().entries.map((b) => 'Batch ${b.key + 1} (${b.value.isLocked ? 'locked' : 'current'}): ${b.value.items.where((i) => i.amount > 0).length} items').join('  ·  ')}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                12 + MediaQuery.of(context).padding.bottom,
+              ),
+              decoration: BoxDecoration(
+                color: context.sheetSurface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: _hasValidationError ? null : _confirm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: cs.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Confirm & finalize'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Card extends StatelessWidget {
   final Widget child;
   const _Card({required this.child});
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.6)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -2794,11 +2990,12 @@ class _Label extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Text(text,
-        style: const TextStyle(
+        style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: AppColors.muted));
+            color: cs.onSurfaceVariant));
   }
 }
 
@@ -2808,12 +3005,13 @@ class _PickerBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F9),
+        color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: cs.outline),
       ),
       child: child,
     );

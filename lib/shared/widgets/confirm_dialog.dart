@@ -176,22 +176,8 @@ class _PromptDialogContentState extends State<_PromptDialogContent> {
         autofocus: true,
         decoration: InputDecoration(
           hintText: widget.hint,
-          filled: true,
-          fillColor: AppColors.surfaceVariant,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-          ),
         ),
         onSubmitted: (v) {
           final value = v.trim();
@@ -246,8 +232,8 @@ class _AppDialogShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Dialog(
-      backgroundColor: AppColors.surface,
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 28),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -273,6 +259,7 @@ class _AppDialogShell extends StatelessWidget {
               textAlign: TextAlign.center,
               style: AppTextStyles.headingSm.copyWith(
                 fontWeight: FontWeight.w700,
+                color: cs.onSurface,
               ),
             ),
             if (message != null) ...[
@@ -281,7 +268,7 @@ class _AppDialogShell extends StatelessWidget {
                 message!,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMd.copyWith(
-                  color: AppColors.muted,
+                  color: cs.onSurfaceVariant,
                   height: 1.45,
                 ),
               ),

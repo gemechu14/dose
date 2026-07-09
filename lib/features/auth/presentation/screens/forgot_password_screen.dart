@@ -47,7 +47,6 @@ class _ForgotPasswordScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Reset Password'),
         leading: IconButton(
@@ -58,13 +57,14 @@ class _ForgotPasswordScreenState
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: _sent ? _buildSuccess() : _buildForm(),
+          child: _sent ? _buildSuccess(context) : _buildForm(context),
         ),
       ),
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Form(
       key: _formKey,
       child: Column(
@@ -73,7 +73,7 @@ class _ForgotPasswordScreenState
           const SizedBox(height: 8),
           Text(
             'Enter your email and we\'ll send you a reset link.',
-            style: AppTextStyles.bodyMd.copyWith(color: AppColors.muted),
+            style: AppTextStyles.bodyMd.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 32),
           AppTextField(
@@ -98,18 +98,19 @@ class _ForgotPasswordScreenState
     );
   }
 
-  Widget _buildSuccess() {
+  Widget _buildSuccess(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Icon(Icons.mark_email_read_outlined,
             size: 72, color: AppColors.accent),
         const SizedBox(height: 24),
-        Text('Check your inbox', style: AppTextStyles.headingLg),
+        Text('Check your inbox', style: AppTextStyles.headingLg.copyWith(color: cs.onSurface)),
         const SizedBox(height: 12),
         Text(
           'We\'ve sent a password reset link to ${_emailController.text}',
-          style: AppTextStyles.bodyMd.copyWith(color: AppColors.muted),
+          style: AppTextStyles.bodyMd.copyWith(color: cs.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),

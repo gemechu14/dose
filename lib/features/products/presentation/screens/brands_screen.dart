@@ -16,7 +16,6 @@ class BrandsScreen extends ConsumerWidget {
     final brandsAsync = ref.watch(brandsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Color Brands')),
       body: brandsAsync.when(
         loading: () => const SkeletonList(),

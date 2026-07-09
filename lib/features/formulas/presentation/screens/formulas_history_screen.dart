@@ -45,9 +45,10 @@ class _FormulasHistoryScreenState
   @override
   Widget build(BuildContext context) {
     final formulasAsync = ref.watch(formulasProvider);
+    final customerNamesAsync = ref.watch(formulaCustomerNamesProvider);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go(AppRoutes.mix),
         backgroundColor: AppColors.primary,
@@ -66,15 +67,15 @@ class _FormulasHistoryScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Text(
                 'Formulas',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F2744),
+                  color: cs.onSurface,
                   letterSpacing: -0.4,
                   height: 1.15,
                 ),
@@ -85,17 +86,15 @@ class _FormulasHistoryScreenState
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: (v) => setState(() => _query = v),
-                style: const TextStyle(fontFamily: 'Inter', fontSize: 15),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 15,
+                    color: cs.onSurface),
                 decoration: InputDecoration(
                   hintText: 'Search by client, service or date',
-                  hintStyle: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    color: AppColors.mutedLight,
-                  ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
-                    color: AppColors.muted,
+                    color: cs.onSurfaceVariant,
                     size: 22,
                   ),
                   suffixIcon: _query.isNotEmpty
@@ -107,26 +106,9 @@ class _FormulasHistoryScreenState
                           },
                         )
                       : null,
-                  filled: true,
-                  fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 14,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.5,
-                    ),
                   ),
                 ),
               ),
@@ -135,7 +117,8 @@ class _FormulasHistoryScreenState
               child: formulasAsync.when(
                 loading: () => const SkeletonList(),
                 error: (err, _) => ErrorState(
-                  message: err.toString().replaceFirst('Exception: ', ''),
+                  message:
+                      err.toString().replaceFirst('Exception: ', ''),
                   onRetry: () =>
                       ref.read(formulasProvider.notifier).refresh(),
                 ),
@@ -158,14 +141,25 @@ class _FormulasHistoryScreenState
                     onRefresh: () =>
                         ref.read(formulasProvider.notifier).refresh(),
                     child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+                      padding:
+                          const EdgeInsets.fromLTRB(16, 12, 16, 88),
                       itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) => _FormulaListTile(
-                        formula: filtered[i],
-                        onTap: () =>
-                            context.push('/formulas/${filtered[i].id}'),
-                      ),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: 10),
+                      itemBuilder: (_, i) {
+                        final formula = filtered[i];
+                        final customerId = formula.customerId;
+                        final customerMap =
+                            customerNamesAsync.valueOrNull ?? const <String, String>{};
+                        final resolvedClient = customerId != null
+                            ? customerMap[customerId]
+                            : null;
+                        return _FormulaListTile(
+                          formula: formula,
+                          clientName: resolvedClient ?? formula.customerName,
+                          onTap: () => context.push('/formulas/${formula.id}'),
+                        );
+                      },
                     ),
                   );
                 },
@@ -180,10 +174,12 @@ class _FormulasHistoryScreenState
 
 class _FormulaListTile extends StatelessWidget {
   final FormulaModel formula;
+  final String? clientName;
   final VoidCallback? onTap;
 
   const _FormulaListTile({
     required this.formula,
+    this.clientName,
     this.onTap,
   });
 
@@ -203,29 +199,40 @@ class _FormulaListTile extends StatelessWidget {
   String get _subtitle {
     final date = _formatDate(formula.createdAt);
     final service = formula.displayService;
-    if (date.isEmpty) return service;
-    return '$service · $date';
+    final client = clientName?.trim();
+    final title = formula.displayTitle.trim().toLowerCase();
+    final normalizedService = service.trim().toLowerCase();
+    final parts = <String>[
+      (client != null && client.isNotEmpty) ? client : 'Unknown client',
+      if (normalizedService.isNotEmpty && normalizedService != title) service,
+      if (date.isNotEmpty) date,
+    ];
+    return parts.join(' · ');
   }
 
   @override
   Widget build(BuildContext context) {
     final cost = formula.computedCost;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Material(
-      color: Colors.white,
+      color: cs.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cs.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE8EEF5)),
+            border: Border.all(color: cs.outline),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black
+                    .withValues(alpha: isDark ? 0.15 : 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -236,8 +243,10 @@ class _FormulaListTile extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEFF6FF),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.primary.withValues(alpha: 0.15)
+                      : const Color(0xFFEFF6FF),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -253,11 +262,11 @@ class _FormulaListTile extends StatelessWidget {
                   children: [
                     Text(
                       formula.displayTitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F2744),
+                        color: cs.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -265,10 +274,10 @@ class _FormulaListTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       _subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 13,
-                        color: AppColors.muted,
+                        color: cs.onSurfaceVariant,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -279,11 +288,11 @@ class _FormulaListTile extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 '\$${cost.toStringAsFixed(2)}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.mutedLight,
+                  color: cs.onSurfaceVariant,
                 ),
               ),
             ],

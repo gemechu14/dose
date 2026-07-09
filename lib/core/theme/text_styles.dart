@@ -6,7 +6,6 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 32,
     fontWeight: FontWeight.w700,
-    color: AppColors.foreground,
     height: 1.2,
   );
 
@@ -14,7 +13,6 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 24,
     fontWeight: FontWeight.w700,
-    color: AppColors.foreground,
     height: 1.3,
   );
 
@@ -22,7 +20,6 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 20,
     fontWeight: FontWeight.w600,
-    color: AppColors.foreground,
     height: 1.4,
   );
 
@@ -30,7 +27,6 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 18,
     fontWeight: FontWeight.w600,
-    color: AppColors.foreground,
     height: 1.4,
   );
 
@@ -38,7 +34,6 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: AppColors.foreground,
     height: 1.5,
   );
 
@@ -46,7 +41,6 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 16,
     fontWeight: FontWeight.w400,
-    color: AppColors.foreground,
     height: 1.5,
   );
 
@@ -54,7 +48,6 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    color: AppColors.foreground,
     height: 1.5,
   );
 
@@ -62,10 +55,11 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 13,
     fontWeight: FontWeight.w400,
-    color: AppColors.foreground,
     height: 1.5,
   );
 
+  // Caption and label use muted color — slate-500 is acceptable on both light
+  // and dark backgrounds. Callers can override via .copyWith(color: ...).
   static const TextStyle caption = TextStyle(
     fontFamily: 'Inter',
     fontSize: 12,
@@ -86,7 +80,6 @@ abstract class AppTextStyles {
     fontFamily: 'Inter',
     fontSize: 13,
     fontWeight: FontWeight.w600,
-    color: AppColors.foreground,
     height: 1.4,
   );
 
@@ -101,6 +94,5 @@ abstract class AppTextStyles {
     fontFamily: 'monospace',
     fontSize: 13,
     fontWeight: FontWeight.w400,
-    color: AppColors.foreground,
   );
 }

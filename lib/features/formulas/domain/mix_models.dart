@@ -739,6 +739,10 @@ class MixBuilderState {
     required String locationId,
     required String userId,
   }) {
+    final resolvedFormulaName =
+        (sessionName != null && sessionName!.trim().isNotEmpty)
+            ? sessionName!.trim()
+            : 'Formula';
     final bowlPayloads = <Map<String, dynamic>>[];
     for (var bi = 0; bi < bowls.length; bi++) {
       final bowl = bowls[bi];
@@ -782,8 +786,9 @@ class MixBuilderState {
       ].where((v) => v.isNotEmpty).join(' | ');
 
       bowlPayloads.add({
-        'bowl_label': bowl.label,
         'bowl_sort_order': bi,
+        'bowl_label': '',
+        'formula_name': resolvedFormulaName,
         if (bowlNotes.isNotEmpty) 'notes': bowlNotes,
         'items': items,
       });
@@ -794,8 +799,8 @@ class MixBuilderState {
       'location_id': locationId,
       'customer_id': customerId,
       'created_by_user_id': userId,
-      if (sessionName != null && sessionName!.isNotEmpty)
-        'session_name': sessionName,
+      'session_name': resolvedFormulaName,
+      'formula_name': resolvedFormulaName,
       if (serviceType != null && serviceType!.isNotEmpty)
         'service_type': serviceType,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,

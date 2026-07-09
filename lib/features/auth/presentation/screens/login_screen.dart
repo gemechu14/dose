@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/api_constants.dart';
@@ -126,7 +127,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
@@ -138,7 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 40),
 
                 // Logo + branding
-                _buildHeader(),
+                _buildHeader(context),
 
                 const SizedBox(height: 48),
 
@@ -170,7 +170,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       _obscurePassword
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      color: AppColors.muted,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       size: 20,
                     ),
                     onPressed: () =>
@@ -273,33 +273,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Image.asset(
-                'assets/images/dose_logo.png',
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-              ),
+            SvgPicture.asset(
+              'assets/images/icon.svg',
+              width: 48,
+              height: 48,
             ),
             const SizedBox(width: 12),
             Text(
               AppStrings.appName,
-              style: AppTextStyles.displaySm
-                  .copyWith(color: AppColors.foreground),
+              style: AppTextStyles.displaySm.copyWith(color: cs.onSurface),
             ),
           ],
         ),
         const SizedBox(height: 12),
         Text(
           AppStrings.loginSubtitle,
-          style: AppTextStyles.bodyLg.copyWith(color: AppColors.muted),
+          style: AppTextStyles.bodyLg.copyWith(color: cs.onSurfaceVariant),
         ),
       ],
     );

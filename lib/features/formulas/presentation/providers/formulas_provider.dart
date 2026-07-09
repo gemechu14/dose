@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../customers/data/repositories/customers_repository_impl.dart';
 import '../../data/models/formula_model.dart';
 import '../../data/repositories/formulas_repository_impl.dart';
 
@@ -77,6 +78,42 @@ final formulaDetailProvider =
     (f) => throw Exception(f.message),
     (formula) => formula,
   );
+});
+
+/// Resolves customer names for formulas when API returns only customer_id.
+final formulaCustomerNamesProvider =
+    FutureProvider<Map<String, String>>((ref) async {
+  final formulas = await ref.watch(formulasProvider.future);
+  final ids = formulas
+      .map((f) => f.customerId)
+      .whereType<String>()
+      .where((id) => id.isNotEmpty)
+      .toSet();
+  if (ids.isEmpty) return const {};
+
+  final repo = ref.read(customersRepositoryProvider);
+  final map = <String, String>{};
+  var page = 1;
+  const pageSize = 100;
+
+  while (true) {
+    final result = await repo.getCustomers(page: page, pageSize: pageSize);
+    final paginated = result.fold(
+      (f) => throw Exception(f.message),
+      (p) => p,
+    );
+
+    for (final c in paginated.results) {
+      if (ids.contains(c.id) && c.fullName.trim().isNotEmpty) {
+        map[c.id] = c.fullName.trim();
+      }
+    }
+
+    if (paginated.next == null || map.length >= ids.length) break;
+    page++;
+  }
+
+  return map;
 });
 
 // ─── Formula builder state ───────────────────────────────────────────────────

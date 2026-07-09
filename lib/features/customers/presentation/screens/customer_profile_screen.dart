@@ -21,14 +21,10 @@ class CustomerProfileScreen extends ConsumerWidget {
     final customerAsync = ref.watch(customerDetailProvider(customerId));
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
-          color: AppColors.foreground,
           onPressed: () => context.pop(),
         ),
       ),
@@ -41,7 +37,9 @@ class CustomerProfileScreen extends ConsumerWidget {
               child: Text(
                 err.toString(),
                 textAlign: TextAlign.center,
-                style: AppTextStyles.bodyMd.copyWith(color: AppColors.muted),
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -59,6 +57,7 @@ class _ProfileBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final formulasAsync =
         ref.watch(customerFormulasProvider(customer.id));
 
@@ -85,9 +84,8 @@ class _ProfileBody extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           customer.fullName,
-                          style: AppTextStyles.headingSm.copyWith(
-                            color: AppColors.foreground,
-                          ),
+                          style: AppTextStyles.headingSm
+                              .copyWith(color: cs.onSurface),
                         ),
                       ),
                     ],
@@ -104,9 +102,8 @@ class _ProfileBody extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           customer.email ?? '—',
-                          style: AppTextStyles.headingSm.copyWith(
-                            color: AppColors.foreground,
-                          ),
+                          style: AppTextStyles.headingSm
+                              .copyWith(color: cs.onSurface),
                         ),
                       ),
                     ],
@@ -149,7 +146,9 @@ class _ProfileBody extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        Text('Formulas', style: AppTextStyles.caption),
+                        Text('Formulas',
+                            style: AppTextStyles.caption
+                                .copyWith(color: cs.onSurfaceVariant)),
                       ],
                     ),
                   ),
@@ -166,13 +165,14 @@ class _ProfileBody extends ConsumerWidget {
                         const SizedBox(height: 6),
                         Text(
                           customer.phone ?? '—',
-                          style: AppTextStyles.headingSm.copyWith(
-                            color: AppColors.foreground,
-                          ),
+                          style: AppTextStyles.headingSm
+                              .copyWith(color: cs.onSurface),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text('Phone', style: AppTextStyles.caption),
+                        Text('Phone',
+                            style: AppTextStyles.caption
+                                .copyWith(color: cs.onSurfaceVariant)),
                       ],
                     ),
                   ),
@@ -188,12 +188,14 @@ class _ProfileBody extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Notes', style: AppTextStyles.headingSm),
+                    Text('Notes',
+                        style: AppTextStyles.headingSm
+                            .copyWith(color: cs.onSurface)),
                     const SizedBox(height: 8),
                     Text(
                       customer.notes!,
                       style: AppTextStyles.bodyMd.copyWith(
-                        color: AppColors.muted,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -220,7 +222,8 @@ class _ProfileBody extends ConsumerWidget {
 
             // Color history timeline
             Text(AppStrings.colorHistory,
-                style: AppTextStyles.headingSm),
+                style: AppTextStyles.headingSm
+                    .copyWith(color: cs.onSurface)),
             const SizedBox(height: 12),
 
             formulasAsync.when(
@@ -228,7 +231,7 @@ class _ProfileBody extends ConsumerWidget {
               error: (err, _) => Text(
                 err.toString(),
                 style:
-                    AppTextStyles.bodyMd.copyWith(color: AppColors.muted),
+                    AppTextStyles.bodyMd.copyWith(color: cs.onSurfaceVariant),
               ),
               data: (formulas) {
                 if (formulas.isEmpty) {
@@ -237,7 +240,7 @@ class _ProfileBody extends ConsumerWidget {
                     child: Text(
                       'No formulas yet',
                       style: AppTextStyles.bodyMd.copyWith(
-                        color: AppColors.muted,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   );
@@ -273,6 +276,7 @@ class _FormulaHistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return AppCard(
       onTap: onTap,
       padding: const EdgeInsets.all(14),
@@ -295,18 +299,20 @@ class _FormulaHistoryTile extends StatelessWidget {
               children: [
                 Text(
                   formula.serviceType ?? 'Color Service',
-                  style: AppTextStyles.labelBold,
+                  style: AppTextStyles.labelBold
+                      .copyWith(color: cs.onSurface),
                 ),
                 if (formula.createdAt != null)
                   Text(
                     formula.createdAt.toString().substring(0, 10),
-                    style: AppTextStyles.caption,
+                    style: AppTextStyles.caption
+                        .copyWith(color: cs.onSurfaceVariant),
                   ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded,
-              color: AppColors.muted, size: 18),
+          Icon(Icons.chevron_right_rounded,
+              color: cs.onSurfaceVariant, size: 18),
         ],
       ),
     );

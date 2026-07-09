@@ -18,14 +18,20 @@ class SkeletonBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base =
+        isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant;
+    final highlight =
+        isDark ? AppColors.darkSurface : Colors.white;
+
     return Shimmer.fromColors(
-      baseColor: AppColors.surfaceVariant,
-      highlightColor: Colors.white,
+      baseColor: base,
+      highlightColor: highlight,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: base,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),
@@ -40,15 +46,25 @@ class SkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base =
+        isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant;
+    final highlight =
+        isDark ? AppColors.darkSurface : Colors.white;
+    final surface =
+        isDark ? AppColors.darkSurface : AppColors.surface;
+    final border =
+        isDark ? AppColors.darkBorder : AppColors.border;
+
     return Shimmer.fromColors(
-      baseColor: AppColors.surfaceVariant,
-      highlightColor: Colors.white,
+      baseColor: base,
+      highlightColor: highlight,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,7 +75,7 @@ class SkeletonCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant,
+                    color: base,
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -67,27 +83,17 @@ class SkeletonCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                        width: 140,
-                        height: 14,
-                        color: AppColors.surfaceVariant),
+                    Container(width: 140, height: 14, color: base),
                     const SizedBox(height: 6),
-                    Container(
-                        width: 90,
-                        height: 12,
-                        color: AppColors.surfaceVariant),
+                    Container(width: 90, height: 12, color: base),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Container(
-                width: double.infinity,
-                height: 12,
-                color: AppColors.surfaceVariant),
+            Container(width: double.infinity, height: 12, color: base),
             const SizedBox(height: 6),
-            Container(
-                width: 200, height: 12, color: AppColors.surfaceVariant),
+            Container(width: 200, height: 12, color: base),
           ],
         ),
       ),
@@ -102,29 +108,37 @@ class CustomerSkeletonTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base =
+        isDark ? AppColors.darkSurfaceVariant : const Color(0xFFEEF2F7);
+    final highlight =
+        isDark ? AppColors.darkSurface : Colors.white;
+    final surface =
+        isDark ? AppColors.darkSurface : Colors.white;
+    final border =
+        isDark ? AppColors.darkBorder : const Color(0xFFE8EEF5);
+
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFEEF2F7),
-      highlightColor: Colors.white,
+      baseColor: base,
+      highlightColor: highlight,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE8EEF5)),
+          border: Border.all(color: border),
         ),
         child: Row(
           children: [
-            // Circle avatar placeholder
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF2F7),
+                color: base,
                 shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: 14),
-            // Name + phone lines
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,7 +147,7 @@ class CustomerSkeletonTile extends StatelessWidget {
                     width: 160,
                     height: 14,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2F7),
+                      color: base,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -142,19 +156,18 @@ class CustomerSkeletonTile extends StatelessWidget {
                     width: 100,
                     height: 11,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2F7),
+                      color: base,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                 ],
               ),
             ),
-            // Formula count placeholder
             Container(
               width: 24,
               height: 14,
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF2F7),
+                color: base,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -171,7 +184,8 @@ class SkeletonList extends StatelessWidget {
   final int count;
   final bool useCustomerTile;
 
-  const SkeletonList({super.key, this.count = 8, this.useCustomerTile = false});
+  const SkeletonList(
+      {super.key, this.count = 8, this.useCustomerTile = false});
 
   @override
   Widget build(BuildContext context) {
