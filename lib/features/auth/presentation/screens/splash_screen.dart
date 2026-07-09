@@ -92,18 +92,18 @@ class _SplashScreenState extends State<SplashScreen>
 
               const SizedBox(height: 8),
 
-              FadeTransition(
-                opacity: _fade,
-                child: Text(
-                  'Color formula studio',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white.withValues(alpha: 0.75),
-                  ),
-                ),
-              ),
+              // FadeTransition(
+              //   opacity: _fade,
+              //   child: Text(
+              //     'Color formula studio',
+              //     style: TextStyle(
+              //       fontFamily: 'Inter',
+              //       fontSize: 14,
+              //       fontWeight: FontWeight.w400,
+              //       color: Colors.white.withValues(alpha: 0.75),
+              //     ),
+              //   ),
+              // ),
 
               const Spacer(flex: 3),
 

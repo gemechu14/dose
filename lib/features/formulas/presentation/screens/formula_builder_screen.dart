@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -120,7 +121,7 @@ class _FormulaBuilderScreenState
       return;
     }
 
-    // Show finalize dialog for waste entry.
+    // Always require finalize dialog (waste per bowl) before save.
     final confirmed = await _showFinalizeDialog(st);
     if (!confirmed) return;
 
@@ -150,83 +151,300 @@ class _FormulaBuilderScreenState
       _notesCtrl.clear();
       _sessionCtrl.clear();
 
-      if (mounted) {
-        final bowlCount = payload['bowls'] is List
-            ? (payload['bowls'] as List).length
-            : 1;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Visit saved — $bowlCount bowl${bowlCount > 1 ? 's' : ''}'),
-          backgroundColor: AppColors.success,
-        ));
-      }
+      if (!mounted) return;
+      final bowlCount = payload['bowls'] is List
+          ? (payload['bowls'] as List).length
+          : 1;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            'Formula finalized — $bowlCount bowl${bowlCount > 1 ? 's' : ''} saved'),
+        backgroundColor: AppColors.success,
+      ));
+    } on DioException catch (e) {
+      _snack(_stockAwareErrorMessage(e));
     } catch (e) {
-      _snack('Save failed: $e');
+      _snack('Finalize failed: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  Future<bool> _showFinalizeDialog(MixBuilderState st) async {
-    final bowls = st.bowls
-        .where((b) => b.allItems.any((i) => i.amount > 0))
-        .toList();
+  String _stockAwareErrorMessage(DioException e) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      final shortages =
+          data['shortages'] ?? data['stock_shortages'] ?? data['insufficient_stock'];
+      if (shortages is List && shortages.isNotEmpty) {
+        final details = shortages.take(4).map((s) {
+          if (s is! Map) return null;
+          final m = Map<String, dynamic>.from(s);
+          final name = (m['product_name'] ??
+                  m['name'] ??
+                  m['product_code'] ??
+                  m['tenant_product_id'] ??
+                  'Product')
+              .toString();
+          final needed = (m['required_qty'] ?? m['required'] ?? m['needed'] ?? '?')
+              .toString();
+          final onHand = (m['on_hand_qty'] ?? m['available'] ?? m['on_hand'] ?? '?')
+              .toString();
+          return '$name (need $needed, have $onHand)';
+        }).whereType<String>().toList();
+        if (details.isNotEmpty) {
+          return 'Not enough stock for: ${details.join('; ')}';
+        }
+      }
 
-    return showAppDialog(
-      context,
-      title: bowls.length > 1
-          ? 'Finalize ${bowls.length} bowls'
-          : 'Finalize formula',
-      message: 'Inventory deducts the full mixed amount for each bowl.',
-      icon: Icons.science_outlined,
-      confirmLabel: 'Save visit',
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...bowls.map((bowl) {
-              final totalMixed = bowl.totalGrams;
-              return Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF4F6F9),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      bowl.label.toUpperCase(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        color: AppColors.primary,
+      final message = data['detail'] ?? data['message'] ?? data['error'];
+      if (message is String && message.isNotEmpty) {
+        return 'Finalize failed: $message';
+      }
+    }
+    return 'Finalize failed: ${parseDioError(e)}';
+  }
+
+  Future<bool> _showFinalizeDialog(MixBuilderState st) async {
+    final indexedBowls = st.bowls
+        .asMap()
+        .entries
+        .where((e) => e.value.allItems.any((i) => i.amount > 0))
+        .toList();
+    if (indexedBowls.isEmpty) return false;
+
+    final controllers = <int, TextEditingController>{
+      for (final e in indexedBowls)
+        e.key: TextEditingController(text: e.value.leftoverG),
+    };
+    final errors = <int, String>{for (final e in indexedBowls) e.key: ''};
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          bool hasValidationError = false;
+          for (final e in indexedBowls) {
+            final bowl = e.value;
+            final waste = double.tryParse(controllers[e.key]!.text.trim()) ?? 0;
+            if (waste < 0 || waste > bowl.totalGrams) {
+              hasValidationError = true;
+              break;
+            }
+          }
+
+          return Dialog.fullscreen(
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            indexedBowls.length > 1
+                                ? 'Finalize ${indexedBowls.length} bowls'
+                                : 'Finalize formula',
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: Column(
+                        children: indexedBowls.map((entry) {
+                          final bowlIndex = entry.key;
+                          final bowl = entry.value;
+                          final wasteText = controllers[bowlIndex]!.text.trim();
+                          final waste = double.tryParse(wasteText) ?? 0;
+                          final split =
+                              bowl.copyWith(leftoverG: wasteText).computeWasteByProduct();
+
+                          String splitPreview;
+                          if (waste <= 0) {
+                            splitPreview = 'No waste entered';
+                          } else if (split.isEmpty) {
+                            splitPreview = 'No split available';
+                          } else {
+                            final colorWaste = split.entries
+                                .where((e) {
+                                  final item = bowl.allItems.firstWhere(
+                                      (i) => i.product.id == e.key,
+                                      orElse: () => MixItem(
+                                          id: 'x',
+                                          product: const TenantProduct(
+                                              id: 'x', name: 'Unknown'),
+                                          amount: 0));
+                                  return !item.product.isDeveloper;
+                                })
+                                .fold(0.0, (s, e) => s + e.value);
+                            final devWaste =
+                                split.values.fold(0.0, (s, v) => s + v) - colorWaste;
+                            splitPreview =
+                                '${colorWaste.toStringAsFixed(1)}g color · ${devWaste.toStringAsFixed(1)}g developer';
+                          }
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  bowl.label.trim().isEmpty
+                                      ? 'Bowl ${bowlIndex + 1}'
+                                      : bowl.label,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Mixed ${bowl.totalGrams.toStringAsFixed(1)}g · ${ratioLabel(bowl.developerRatio)} · ${bowl.batches.length} batch${bowl.batches.length > 1 ? 'es' : ''}',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: AppColors.muted),
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: controllers[bowlIndex],
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(decimal: true),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                        RegExp(r'^\d*\.?\d*')),
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: 'Total bowl waste',
+                                    suffixText: 'g',
+                                    errorText: errors[bowlIndex]!.isEmpty
+                                        ? null
+                                        : errors[bowlIndex],
+                                    border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  onChanged: (_) => setDlgState(() {
+                                    errors[bowlIndex] = '';
+                                  }),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Waste split preview: $splitPreview',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: AppColors.mutedLight),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Batches: ${bowl.batches.asMap().entries.map((b) => 'Batch ${b.key + 1} (${b.value.isLocked ? 'locked' : 'current'}): ${b.value.items.where((i) => i.amount > 0).length} items').join('  ·  ')}',
+                                  style: const TextStyle(
+                                      fontSize: 11, color: AppColors.muted),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${bowl.batches.length} batch${bowl.batches.length > 1 ? 'es' : ''}'
-                      ' · ${totalMixed.toStringAsFixed(1)}g mixed'
-                      ' · \$${bowl.totalCost.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 13),
+                  ),
+                  Container(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      12,
+                      16,
+                      12 + MediaQuery.of(ctx).padding.bottom,
                     ),
-                  ],
-                ),
-              );
-            }),
-            Text(
-              'Total: ${st.totalGrams.toStringAsFixed(1)}g  ·  '
-              '\$${st.totalCost.toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 10,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: hasValidationError
+                                ? null
+                                : () {
+                                    bool valid = true;
+                                    for (final e in indexedBowls) {
+                                      final bowl = e.value;
+                                      final parsed = double.tryParse(
+                                              controllers[e.key]!.text.trim()) ??
+                                          0;
+                                      if (parsed < 0) {
+                                        errors[e.key] = 'Waste cannot be negative';
+                                        valid = false;
+                                      } else if (parsed > bowl.totalGrams) {
+                                        errors[e.key] =
+                                            'Waste cannot exceed ${bowl.totalGrams.toStringAsFixed(1)}g mixed';
+                                        valid = false;
+                                      } else {
+                                        errors[e.key] = '';
+                                      }
+                                    }
+                                    if (!valid) {
+                                      setDlgState(() {});
+                                      return;
+                                    }
+
+                                    for (final e in indexedBowls) {
+                                      final text = controllers[e.key]!.text.trim();
+                                      final parsed = double.tryParse(text) ?? 0;
+                                      ref.read(mixBuilderProvider.notifier).setBowlWaste(
+                                            e.key,
+                                            parsed > 0 ? parsed.toString() : '',
+                                          );
+                                    }
+                                    _scheduleSave();
+                                    Navigator.of(ctx).pop(true);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Confirm & finalize'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
+
+    for (final c in controllers.values) {
+      c.dispose();
+    }
+    return confirmed ?? false;
   }
 
   void _snack(String msg) {
@@ -724,38 +942,28 @@ class _HistoryChip extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 _ChipAction(
-                  tooltip: 'Use',
-                  icon: Icons.play_arrow_rounded,
-                  color: AppColors.primary,
-                  onTap: () async {
-                    final catalog =
-                        await ref.read(tenantCatalogProvider.future);
-                    ref.read(mixBuilderProvider.notifier).applyFormula(
-                          formula, ReuseMode.use, catalog);
-                  },
-                ),
-                const SizedBox(width: 4),
-                _ChipAction(
-                  tooltip: 'Copy',
-                  icon: Icons.copy_rounded,
-                  color: Colors.teal,
-                  onTap: () async {
-                    final catalog =
-                        await ref.read(tenantCatalogProvider.future);
-                    ref.read(mixBuilderProvider.notifier).applyFormula(
-                          formula, ReuseMode.copy, catalog);
-                  },
-                ),
-                const SizedBox(width: 4),
-                _ChipAction(
                   tooltip: 'Remix',
                   icon: Icons.edit_rounded,
-                  color: Colors.orange,
+                  color: AppColors.primary,
+                  isPrimary: true,
                   onTap: () async {
                     final catalog =
                         await ref.read(tenantCatalogProvider.future);
                     ref.read(mixBuilderProvider.notifier).applyFormula(
                           formula, ReuseMode.remix, catalog);
+                  },
+                ),
+                const SizedBox(width: 6),
+                _ChipAction(
+                  tooltip: 'Use',
+                  icon: Icons.check_rounded,
+                  color: AppColors.primary,
+                  label: 'Use',
+                  onTap: () async {
+                    final catalog =
+                        await ref.read(tenantCatalogProvider.future);
+                    ref.read(mixBuilderProvider.notifier).applyFormula(
+                          formula, ReuseMode.use, catalog);
                   },
                 ),
               ],
@@ -772,12 +980,16 @@ class _ChipAction extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final bool isPrimary;
+  final String? label;
 
   const _ChipAction({
     required this.tooltip,
     required this.icon,
     required this.color,
     required this.onTap,
+    this.isPrimary = false,
+    this.label,
   });
 
   @override
@@ -787,13 +999,29 @@ class _ChipAction extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 28,
+          width: label != null ? 44 : (isPrimary ? 34 : 28),
           height: 28,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
+            color: isPrimary ? color : color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 15, color: color),
+          child: label != null
+              ? Center(
+                  child: Text(
+                    label!,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isPrimary ? Colors.white : color,
+                    ),
+                  ),
+                )
+              : Icon(
+                  icon,
+                  size: isPrimary ? 16 : 15,
+                  color: isPrimary ? Colors.white : color,
+                ),
         ),
       ),
     );
@@ -2318,7 +2546,7 @@ class _SaveBar extends ConsumerWidget {
         st.bowls.where((b) => b.allItems.any((i) => i.amount > 0)).length;
     final label = bowlCount > 1
         ? 'Finalize $bowlCount bowls'
-        : 'Save visit';
+        : 'Finalize formula';
 
     final hasClient = st.customerId != null;
     final hasProduct =
@@ -2379,12 +2607,9 @@ class _SaveBar extends ConsumerWidget {
                 elevation: 0,
               ),
               child: saving
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
+                  ? const Text('Finalizing...',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700))
                   : Text(label,
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w700)),

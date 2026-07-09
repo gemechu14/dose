@@ -59,9 +59,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthRoute =
           loc.startsWith('/login') || loc.startsWith('/forgot');
 
-      // While auth is resolving, show splash
+      // While bootstrapping auth, keep auth routes visible to avoid
+      // bouncing back to splash during an active login attempt.
       if (isLoading) {
-        return isSplash ? null : AppRoutes.splash;
+        if (isSplash || isAuthRoute) return null;
+        return AppRoutes.splash;
       }
 
       // Auth resolved — navigate away from splash / auth screens

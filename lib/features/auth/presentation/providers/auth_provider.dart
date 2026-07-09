@@ -21,7 +21,6 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
   }
 
   Future<String?> login(String email, String password) async {
-    state = const AsyncLoading();
     final repo = ref.read(authRepositoryProvider);
     final result = await repo.login(email, password);
     return result.fold(
@@ -37,7 +36,6 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
   }
 
   Future<String?> googleLogin(String code, String state_) async {
-    state = const AsyncLoading();
     final repo = ref.read(authRepositoryProvider);
     final result = await repo.googleLogin(code, state_);
     return result.fold(

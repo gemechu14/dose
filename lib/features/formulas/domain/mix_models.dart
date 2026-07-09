@@ -516,35 +516,88 @@ class MixBowl {
   final String label;
   final DeveloperRatio developerRatio;
   final List<MixBatch> batches;
+  final String leftoverG; // total bowl waste in grams (finalize step)
 
   const MixBowl({
     required this.id,
     required this.label,
     this.developerRatio = DeveloperRatio.oneToOne,
     this.batches = const [],
+    this.leftoverG = '',
   });
 
   List<MixItem> get allItems => batches.expand((b) => b.items).toList();
   MixBatch get currentBatch => batches.isNotEmpty ? batches.last : MixBatch(id: '$id-0');
   double get totalGrams => batches.fold(0, (s, b) => s + b.totalGrams);
   double get totalCost => batches.fold(0, (s, b) => s + b.totalCost);
+  double get wasteGrams => double.tryParse(leftoverG) ?? 0;
 
   MixBowl copyWith({
     String? label,
     DeveloperRatio? developerRatio,
     List<MixBatch>? batches,
+    String? leftoverG,
   }) =>
       MixBowl(
         id: id,
         label: label ?? this.label,
         developerRatio: developerRatio ?? this.developerRatio,
         batches: batches ?? this.batches,
+        leftoverG: leftoverG ?? this.leftoverG,
       );
+
+  /// Split bowl-level waste across products using ratio rules.
+  Map<String, double> computeWasteByProduct() {
+    final totalWaste = wasteGrams;
+    if (totalWaste <= 0) return {};
+
+    final items = allItems.where((i) => i.amount > 0).toList();
+    if (items.isEmpty) return {};
+
+    if (developerRatio == DeveloperRatio.manual) {
+      final total = totalGrams;
+      if (total <= 0) return {};
+      final result = <String, double>{};
+      for (final item in items) {
+        result[item.product.id] = (result[item.product.id] ?? 0) +
+            ((item.amount / total) * totalWaste);
+      }
+      return result;
+    }
+
+    final pigmentSide =
+        items.where((i) => !i.product.isDeveloper && i.amount > 0).toList();
+    final devSide =
+        items.where((i) => i.product.isDeveloper && i.amount > 0).toList();
+
+    final pigmentPool = totalWaste * wastePigmentShare(developerRatio);
+    final devPool = totalWaste * wasteDeveloperShare(developerRatio);
+
+    final result = <String, double>{};
+    final pigmentTotal = pigmentSide.fold(0.0, (s, i) => s + i.amount);
+    if (pigmentTotal > 0) {
+      for (final item in pigmentSide) {
+        result[item.product.id] = (result[item.product.id] ?? 0) +
+            ((item.amount / pigmentTotal) * pigmentPool);
+      }
+    }
+
+    final devTotal = devSide.fold(0.0, (s, i) => s + i.amount);
+    if (devTotal > 0) {
+      for (final item in devSide) {
+        result[item.product.id] =
+            (result[item.product.id] ?? 0) + ((item.amount / devTotal) * devPool);
+      }
+    }
+
+    return result;
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'label': label,
         'developerRatio': ratioLabel(developerRatio),
+        'leftoverG': leftoverG,
         'batches': batches.map((b) => b.toJson()).toList(),
       };
 
@@ -559,6 +612,7 @@ class MixBowl {
       id: json['id'] as String,
       label: json['label'] as String? ?? 'Bowl',
       developerRatio: ratioFromLabel(json['developerRatio'] as String?),
+      leftoverG: json['leftoverG'] as String? ?? '',
       batches: batches,
     );
   }
@@ -567,6 +621,7 @@ class MixBowl {
         id: id,
         label: label,
         developerRatio: DeveloperRatio.oneToOne,
+        leftoverG: '',
         batches: [MixBatch(id: 'batch-$id-0')],
       );
 }
@@ -690,7 +745,6 @@ class MixBuilderState {
 
       // Aggregate amounts per tenant_product_id across all batches.
       final amounts = <String, _AggItem>{};
-      final wastes = <String, double>{};
       final batchNotes = <String>[];
 
       for (var batchIdx = 0; batchIdx < bowl.batches.length; batchIdx++) {
@@ -705,19 +759,15 @@ class MixBuilderState {
                 _AggItem(product: item.product, amount: item.amount),
           );
         }
-        // Distribute waste proportionally across this batch's products.
-        final wasteMap = batch.computeWasteByProduct(bowl.developerRatio);
-        for (final e in wasteMap.entries) {
-          wastes[e.key] = (wastes[e.key] ?? 0) + e.value;
-        }
-        final note =
-            batch.wasteSplitNotes(bowl.developerRatio);
-        if (note.isNotEmpty) {
-          batchNotes.add('Batch ${batchIdx + 1}: $note');
+        if (batch.isLocked) {
+          batchNotes.add('Batch ${batchIdx + 1}: locked');
+        } else {
+          batchNotes.add('Batch ${batchIdx + 1}: current');
         }
       }
 
       if (amounts.isEmpty) continue;
+      final wastes = bowl.computeWasteByProduct();
 
       final items = amounts.values.map((a) => {
             'tenant_product_id': a.product.id,
@@ -726,12 +776,15 @@ class MixBuilderState {
             'cost_at_time': a.product.defaultUnitCost,
           }).toList();
 
-      final bowlNotes = batchNotes.isEmpty ? null : batchNotes.join(' | ');
+      final bowlNotes = [
+        if (batchNotes.isNotEmpty) batchNotes.join(' | '),
+        if (bowl.wasteGrams > 0) 'Bowl waste: ${bowl.wasteGrams.toStringAsFixed(1)}g',
+      ].where((v) => v.isNotEmpty).join(' | ');
 
       bowlPayloads.add({
         'bowl_label': bowl.label,
         'bowl_sort_order': bi,
-        if (bowlNotes != null) 'notes': bowlNotes,
+        if (bowlNotes.isNotEmpty) 'notes': bowlNotes,
         'items': items,
       });
     }

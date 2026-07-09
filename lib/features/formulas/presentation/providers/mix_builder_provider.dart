@@ -257,6 +257,14 @@ class MixBuilderNotifier extends Notifier<MixBuilderState> {
     state = state.copyWith(bowls: bowls);
   }
 
+  void setBowlWaste(int bowlIndex, String wasteG) {
+    final bowls = _updateBowl(
+      bowlIndex,
+      (b) => b.copyWith(leftoverG: wasteG),
+    );
+    state = state.copyWith(bowls: bowls);
+  }
+
   // ── Batch management ──────────────────────────────────────────────────────
 
   List<MixItem> _itemsAfterChange(
