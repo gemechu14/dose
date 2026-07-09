@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../../../../shared/widgets/confirm_dialog.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -136,9 +137,181 @@ class ProfileScreen extends ConsumerWidget {
         .join(' ');
   }
 
+  String _themeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+      case ThemeMode.system:
+        return 'System';
+    }
+  }
+
+  Future<void> _showThemePicker(BuildContext context, WidgetRef ref) async {
+    final current = ref.read(themeModeProvider);
+    final selected = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) {
+        Widget option({
+          required ThemeMode mode,
+          required String title,
+          required String subtitle,
+          required IconData icon,
+          required Color iconBg,
+          required Color iconColor,
+        }) {
+          final isSelected = current == mode;
+          return InkWell(
+            onTap: () => Navigator.pop(ctx, mode),
+            borderRadius: BorderRadius.circular(14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.08)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, size: 18, color: iconColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F2744),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isSelected
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: isSelected ? AppColors.primary : AppColors.mutedLight,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Choose theme',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F2744),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                option(
+                  mode: ThemeMode.system,
+                  title: 'System',
+                  subtitle: 'Match device appearance',
+                  icon: Icons.phone_android_rounded,
+                  iconBg: const Color(0xFFEFF6FF),
+                  iconColor: AppColors.primary,
+                ),
+                const SizedBox(height: 8),
+                option(
+                  mode: ThemeMode.light,
+                  title: 'Light',
+                  subtitle: 'Bright and clean interface',
+                  icon: Icons.light_mode_rounded,
+                  iconBg: const Color(0xFFFFF7ED),
+                  iconColor: const Color(0xFFF59E0B),
+                ),
+                const SizedBox(height: 8),
+                option(
+                  mode: ThemeMode.dark,
+                  title: 'Dark',
+                  subtitle: 'Low-light friendly interface',
+                  icon: Icons.dark_mode_rounded,
+                  iconBg: const Color(0xFFEEF2FF),
+                  iconColor: const Color(0xFF6366F1),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null) {
+      await ref.read(themeModeProvider.notifier).setMode(selected);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final themeMode = ref.watch(themeModeProvider);
     final name = (user?.fullName.trim().isNotEmpty ?? false)
         ? user!.fullName.trim()
         : 'Stylist';
@@ -332,33 +505,32 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   child: Column(
                     children: [
-                      // Theme row — hidden for now
-                      // _SettingsRow(
-                      //   icon: Icons.palette_outlined,
-                      //   iconBg: const Color(0xFFEFF6FF),
-                      //   iconColor: AppColors.primary,
-                      //   title: 'Theme',
-                      //   trailing: Row(
-                      //     mainAxisSize: MainAxisSize.min,
-                      //     children: [
-                      //       Text(
-                      //         _themeLabel(themeMode),
-                      //         style: const TextStyle(
-                      //           fontFamily: 'Inter',
-                      //           fontSize: 14,
-                      //           color: AppColors.muted,
-                      //         ),
-                      //       ),
-                      //       const SizedBox(width: 4),
-                      //       const Icon(
-                      //         Icons.chevron_right_rounded,
-                      //         color: AppColors.mutedLight,
-                      //         size: 22,
-                      //       ),
-                      //     ],
-                      //   ),
-                      //   onTap: () => _showThemePicker(context, ref),
-                      // ),
+                      _SettingsRow(
+                        icon: Icons.palette_outlined,
+                        iconBg: const Color(0xFFEFF6FF),
+                        iconColor: AppColors.primary,
+                        title: 'Theme',
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _themeLabel(themeMode),
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 14,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.mutedLight,
+                              size: 22,
+                            ),
+                          ],
+                        ),
+                        onTap: () => _showThemePicker(context, ref),
+                      ),
                       _SettingsRow(
                         icon: Icons.info_outline_rounded,
                         iconBg: const Color(0xFFF1F5F9),

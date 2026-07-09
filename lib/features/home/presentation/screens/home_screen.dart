@@ -70,29 +70,29 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, size: 26),
-                onPressed: () {},
-                color: const Color(0xFF0F172A),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          // Stack(
+          //   clipBehavior: Clip.none,
+          //   children: [
+          //     IconButton(
+          //       icon: const Icon(Icons.notifications_none_rounded, size: 26),
+          //       onPressed: () {},
+          //       color: const Color(0xFF0F172A),
+          //     ),
+          //     Positioned(
+          //       top: 12,
+          //       right: 12,
+          //       child: Container(
+          //         width: 8,
+          //         height: 8,
+          //         decoration: BoxDecoration(
+          //           color: const Color(0xFFEF4444),
+          //           shape: BoxShape.circle,
+          //           border: Border.all(color: Colors.white, width: 1.5),
+          //         ),
+          //       ),
+          //     ),
+          //   ],
+          // ),
         ],
       ),
     );
@@ -151,7 +151,7 @@ class _TodayCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Ready when you are.',
+              'Let\'s create formula.',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 20,
