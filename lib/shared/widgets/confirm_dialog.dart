@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/text_styles.dart';
+import '../../core/utils/responsive.dart';
 import 'app_button.dart';
 
 /// Standard confirmation dialog used across the app.
@@ -235,11 +236,15 @@ class _AppDialogShell extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Dialog(
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      insetPadding: Responsive.isExpandedOrWider(context)
+          ? const EdgeInsets.symmetric(horizontal: 40, vertical: 24)
+          : const EdgeInsets.symmetric(horizontal: 28),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-        child: Column(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
@@ -280,6 +285,7 @@ class _AppDialogShell extends StatelessWidget {
             const SizedBox(height: 24),
             Row(children: actions),
           ],
+        ),
         ),
       ),
     );

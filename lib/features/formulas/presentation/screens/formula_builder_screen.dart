@@ -11,6 +11,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../../../core/theme/theme_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../tenants/presentation/providers/tenant_provider.dart';
 import '../../data/models/formula_model.dart';
@@ -19,6 +20,7 @@ import '../../domain/mix_models.dart';
 import '../providers/formulas_provider.dart';
 import '../providers/mix_builder_provider.dart';
 import '../../../../shared/widgets/confirm_dialog.dart';
+import '../../../../shared/widgets/responsive_layout.dart';
 import '../widgets/formula_droplet.dart';
 import '../widgets/product_picker_sheet.dart';
 
@@ -321,9 +323,13 @@ class _FormulaBuilderScreenState
           children: [
             _buildHeader(context, st),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+              child: ResponsiveConstraint(
+                child: SingleChildScrollView(
+                  padding: Responsive.pagePadding(context).copyWith(
+                    top: 16,
+                    bottom: 16,
+                  ),
+                  child: Column(
                   children: [
                     _ClientServiceCard(
                       serviceCtrl: _serviceCtrl,
@@ -362,6 +368,7 @@ class _FormulaBuilderScreenState
                     const SizedBox(height: 80),
                   ],
                 ),
+              ),
               ),
             ),
           ],

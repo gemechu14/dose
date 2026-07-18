@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/responsive_layout.dart';
 import '../../../../shared/widgets/skeleton_loader.dart';
 import '../providers/products_provider.dart';
 
@@ -17,7 +19,8 @@ class BrandsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Color Brands')),
-      body: brandsAsync.when(
+      body: ResponsiveConstraint(
+        child: brandsAsync.when(
         loading: () => const SkeletonList(),
         error: (err, _) => ErrorState(
           message: err.toString(),
@@ -31,12 +34,13 @@ class BrandsScreen extends ConsumerWidget {
             );
           }
           return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+            padding: Responsive.pagePadding(context).copyWith(top: 16, bottom: 16),
+            gridDelegate: Responsive.adaptiveGridDelegate(
+              context,
+              compact: 2,
+              medium: 3,
+              expanded: 4,
+              large: 5,
               childAspectRatio: 1.4,
             ),
             itemCount: brands.length,
@@ -84,6 +88,7 @@ class BrandsScreen extends ConsumerWidget {
             },
           );
         },
+        ),
       ),
     );
   }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/router/app_router.dart';
+import '../../core/utils/responsive.dart';
 
 class MainShell extends StatelessWidget {
   final Widget child;
@@ -9,9 +11,173 @@ class MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Responsive.useSideNavigation(context)) {
+      return Scaffold(
+        body: Row(
+          children: [
+            const _SideNav(),
+            Expanded(child: child),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       body: child,
       bottomNavigationBar: const _BottomNav(),
+    );
+  }
+}
+
+String _activeRoute(String location) {
+  if (location.startsWith('/customers')) return AppRoutes.customers;
+  if (location.startsWith('/mix')) return AppRoutes.mix;
+  if (location.startsWith('/formulas')) return AppRoutes.formulaHistory;
+  if (location.startsWith('/profile')) return AppRoutes.profile;
+  return AppRoutes.home;
+}
+
+class _SideNav extends StatelessWidget {
+  const _SideNav();
+
+  @override
+  Widget build(BuildContext context) {
+    final location = GoRouterState.of(context).matchedLocation;
+    final active = _activeRoute(location);
+    final extended = Responsive.isLarge(context);
+    final cs = Theme.of(context).colorScheme;
+
+    int selectedIndex(String route) {
+      switch (route) {
+        case AppRoutes.customers:
+          return 1;
+        case AppRoutes.mix:
+          return 2;
+        case AppRoutes.formulaHistory:
+          return 3;
+        case AppRoutes.profile:
+          return 4;
+        default:
+          return 0;
+      }
+    }
+
+    void onDestinationSelected(int index) {
+      switch (index) {
+        case 0:
+          context.go(AppRoutes.home);
+        case 1:
+          context.go(AppRoutes.customers);
+        case 2:
+          context.go(AppRoutes.mix);
+        case 3:
+          context.go(AppRoutes.formulaHistory);
+        case 4:
+          context.go(AppRoutes.profile);
+      }
+    }
+
+    return NavigationRail(
+      extended: extended,
+      minExtendedWidth: 180,
+      selectedIndex: selectedIndex(active),
+      onDestinationSelected: onDestinationSelected,
+      labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+      backgroundColor: cs.surface,
+      indicatorColor: AppColors.primary.withValues(alpha: 0.12),
+      selectedIconTheme: IconThemeData(color: cs.primary),
+      unselectedIconTheme: IconThemeData(color: cs.onSurfaceVariant),
+      selectedLabelTextStyle: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: cs.primary,
+      ),
+      unselectedLabelTextStyle: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurfaceVariant,
+      ),
+      leading: Padding(
+        padding: EdgeInsets.only(
+          top: extended ? 16 : 12,
+          bottom: extended ? 8 : 4,
+        ),
+        child: extended
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.palette_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'dose',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ],
+              )
+            : Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.palette_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+      ),
+      destinations: const [
+        NavigationRailDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home_rounded),
+          label: Text('Home'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.people_outline_rounded),
+          selectedIcon: Icon(Icons.people_rounded),
+          label: Text('Clients'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.science_outlined),
+          selectedIcon: Icon(Icons.science_rounded),
+          label: Text('Mix'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.history_rounded),
+          selectedIcon: Icon(Icons.history_rounded),
+          label: Text('History'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.person_outline_rounded),
+          selectedIcon: Icon(Icons.person_rounded),
+          label: Text('Profile'),
+        ),
+      ],
     );
   }
 }
@@ -24,8 +190,9 @@ class _BottomNav extends StatelessWidget {
     final mq = MediaQuery.of(context);
     final location = GoRouterState.of(context).matchedLocation;
     final cs = Theme.of(context).colorScheme;
-    final isSmall =
-        mq.size.width < 360 || mq.textScaleFactor > 1.12 || mq.size.height < 720;
+    final isSmall = mq.size.width < 360 ||
+        mq.textScaler.scale(1.0) > 1.12 ||
+        mq.size.height < 720;
 
     final navHeight = isSmall ? 64.0 : 72.0;
     final sideIconSize = isSmall ? 20.0 : 22.0;
@@ -34,15 +201,7 @@ class _BottomNav extends StatelessWidget {
     final centerDiameter = isSmall ? 48.0 : 54.0;
     final centerIconSize = isSmall ? 22.0 : 26.0;
 
-    String activeRoute() {
-      if (location.startsWith('/customers')) return AppRoutes.customers;
-      if (location.startsWith('/mix')) return AppRoutes.mix;
-      if (location.startsWith('/formulas')) return AppRoutes.formulaHistory;
-      if (location.startsWith('/profile')) return AppRoutes.profile;
-      return AppRoutes.home;
-    }
-
-    final active = activeRoute();
+    final active = _activeRoute(location);
     final isMixActive = active == AppRoutes.mix;
 
     return Container(
@@ -82,7 +241,6 @@ class _BottomNav extends StatelessWidget {
                 iconSize: sideIconSize,
                 labelFontSize: sideLabelSize,
               ),
-              // Center Mix button
               Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,

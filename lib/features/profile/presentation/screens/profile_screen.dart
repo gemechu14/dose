@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../shared/widgets/confirm_dialog.dart';
+import '../../../../shared/widgets/responsive_layout.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -339,7 +340,8 @@ class ProfileScreen extends ConsumerWidget {
     final role = _formatRole(user?.role);
 
     return Scaffold(
-      body: Column(
+      body: ResponsiveConstraint(
+        child: Column(
         children: [
           // Blue gradient header — works on both light and dark
           Container(
@@ -628,6 +630,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

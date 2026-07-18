@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/responsive_layout.dart';
 import '../../../../shared/widgets/skeleton_loader.dart';
 import '../../data/models/product_model.dart';
 import '../providers/products_provider.dart';
@@ -35,7 +37,8 @@ class ProductsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: productsAsync.when(
+      body: ResponsiveConstraint(
+        child: productsAsync.when(
         loading: () => const SkeletonList(),
         error: (err, _) => ErrorState(
           message: err.toString(),
@@ -50,10 +53,13 @@ class ProductsScreen extends ConsumerWidget {
             );
           }
           return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            padding: Responsive.pagePadding(context).copyWith(top: 16, bottom: 16),
+            gridDelegate: Responsive.adaptiveGridDelegate(
+              context,
+              compact: 3,
+              medium: 4,
+              expanded: 5,
+              large: 6,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
               childAspectRatio: 0.75,
@@ -108,6 +114,7 @@ class ProductsScreen extends ConsumerWidget {
             },
           );
         },
+        ),
       ),
     );
   }

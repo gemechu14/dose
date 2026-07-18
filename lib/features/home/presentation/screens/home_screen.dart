@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../shared/widgets/responsive_layout.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -18,25 +20,43 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(0, 8, 0, 28),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _Header(firstName: firstName),
-                  const SizedBox(height: 18),
-                  const _TodayCard(),
-                  const SizedBox(height: 14),
-                  const _QuickActions(),
-                  const SizedBox(height: 22),
-                  const _ThisMonth(),
-                  const SizedBox(height: 22),
-                  const _LowStockSection(),
-                ]),
+        child: ResponsiveConstraint(
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  Responsive.isCompact(context) ? 0 : 8,
+                  8,
+                  Responsive.isCompact(context) ? 0 : 8,
+                  28,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _Header(firstName: firstName),
+                    const SizedBox(height: 18),
+                    if (Responsive.isMediumOrWider(context)) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Expanded(flex: 3, child: _TodayCard()),
+                          SizedBox(width: 16),
+                          Expanded(flex: 2, child: _QuickActionsColumn()),
+                        ],
+                      ),
+                    ] else ...[
+                      const _TodayCard(),
+                      const SizedBox(height: 14),
+                      const _QuickActions(),
+                    ],
+                    const SizedBox(height: 22),
+                    const _ThisMonth(),
+                    const SizedBox(height: 22),
+                    const _LowStockSection(),
+                  ]),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -209,36 +229,63 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return const _QuickActionsLayout(horizontal: true);
+  }
+}
+
+class _QuickActionsColumn extends StatelessWidget {
+  const _QuickActionsColumn();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _QuickActionsLayout(horizontal: false);
+  }
+}
+
+class _QuickActionsLayout extends StatelessWidget {
+  final bool horizontal;
+
+  const _QuickActionsLayout({required this.horizontal});
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final findClient = _QuickCard(
+      icon: Icons.search_rounded,
+      iconBgColor: isDark
+          ? AppColors.primary.withValues(alpha: 0.15)
+          : const Color(0xFFEFF6FF),
+      iconColor: AppColors.primary,
+      label: 'Find client',
+      onTap: () => context.go(AppRoutes.customers),
+    );
+    final history = _QuickCard(
+      icon: Icons.history_rounded,
+      iconBgColor: isDark
+          ? AppColors.accent.withValues(alpha: 0.15)
+          : const Color(0xFFECFDF5),
+      iconColor: AppColors.accent,
+      label: 'History',
+      onTap: () => context.go(AppRoutes.formulaHistory),
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: _QuickCard(
-              icon: Icons.search_rounded,
-              iconBgColor: isDark
-                  ? AppColors.primary.withValues(alpha: 0.15)
-                  : const Color(0xFFEFF6FF),
-              iconColor: AppColors.primary,
-              label: 'Find client',
-              onTap: () => context.go(AppRoutes.customers),
+      child: horizontal
+          ? Row(
+              children: [
+                Expanded(child: findClient),
+                const SizedBox(width: 12),
+                Expanded(child: history),
+              ],
+            )
+          : Column(
+              children: [
+                findClient,
+                const SizedBox(height: 12),
+                history,
+              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _QuickCard(
-              icon: Icons.history_rounded,
-              iconBgColor: isDark
-                  ? AppColors.accent.withValues(alpha: 0.15)
-                  : const Color(0xFFECFDF5),
-              iconColor: AppColors.accent,
-              label: 'History',
-              onTap: () => context.go(AppRoutes.formulaHistory),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

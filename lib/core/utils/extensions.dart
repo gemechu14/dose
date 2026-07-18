@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'responsive.dart';
+
 extension StringExtensions on String {
   String get capitalized =>
       isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
@@ -43,6 +45,9 @@ extension BuildContextExtensions on BuildContext {
   Size get screenSize => MediaQuery.of(this).size;
   double get screenWidth => MediaQuery.of(this).size.width;
   double get screenHeight => MediaQuery.of(this).size.height;
+  ScreenSize get responsiveSize => Responsive.screenSizeOf(this);
+  bool get isCompactScreen => Responsive.isCompact(this);
+  bool get isExpandedScreen => Responsive.isExpandedOrWider(this);
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
 
   void showSnackBar(String message, {bool isError = false}) {

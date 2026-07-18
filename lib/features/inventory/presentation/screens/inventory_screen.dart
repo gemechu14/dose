@@ -5,6 +5,7 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/responsive_layout.dart';
 import '../../../../shared/widgets/skeleton_loader.dart';
 import '../providers/inventory_provider.dart';
 import '../../data/models/inventory_model.dart';
@@ -50,12 +51,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _AllStockTab(),
-          _LowStockTab(),
-        ],
+      body: ResponsiveConstraint(
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _AllStockTab(),
+            _LowStockTab(),
+          ],
+        ),
       ),
     );
   }

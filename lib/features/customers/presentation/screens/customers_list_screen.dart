@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/responsive_layout.dart';
 import '../../../../shared/widgets/skeleton_loader.dart';
 import '../providers/customers_provider.dart';
 import '../widgets/customer_list_tile.dart';
@@ -60,7 +61,8 @@ class _CustomersListScreenState extends ConsumerState<CustomersListScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
+        child: ResponsiveConstraint(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
@@ -168,6 +170,7 @@ class _CustomersListScreenState extends ConsumerState<CustomersListScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

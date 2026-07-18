@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/responsive_layout.dart';
 import '../../../../shared/widgets/skeleton_loader.dart';
 import '../providers/formulas_provider.dart';
 import '../../data/models/formula_model.dart';
@@ -64,7 +65,8 @@ class _FormulasHistoryScreenState
         ),
       ),
       body: SafeArea(
-        child: Column(
+        child: ResponsiveConstraint(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
@@ -166,6 +168,7 @@ class _FormulasHistoryScreenState
               ),
             ),
           ],
+        ),
         ),
       ),
     );
